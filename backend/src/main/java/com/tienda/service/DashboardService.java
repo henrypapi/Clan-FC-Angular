@@ -72,7 +72,7 @@ public class DashboardService {
 
         // Alertas de stock bajo por sede
         sedeRepository.findAllByActivaTrueOrderByNombreAsc().forEach(sede -> {
-            productoSedeStockRepository.findBySedeIdSedeAndStockLessThanEqualStockMinimo(sede.getIdSede())
+            productoSedeStockRepository.encontrarStockBajoPorSede(sede.getIdSede())
                     .forEach(pss -> {
                         String severidad = pss.getStock() == 0 ? "CRITICA" : "ALERTA";
                         alertas.add(new AlertasStockResponse.Alerta(

@@ -51,9 +51,9 @@ public class ProductoSedeStockService {
 
     @Transactional(readOnly = true)
     public List<ProductoResponse> productosConStockBajoPorSede(Long idSede) {
-        return productoSedeStockRepository.findBySedeIdSedeAndStockLessThanEqualStockMinimo(idSede).stream()
-                .map(pss -> {
-                    ProductoResponse resp = ProductoResponse.from(pss.getProducto());
+        return productoSedeStockRepository.encontrarStockBajoPorSede(idSede).stream()
+            .map(pss -> {
+                ProductoResponse resp = ProductoResponse.from(pss.getProducto());
                     return new ProductoResponse(
                             resp.idProducto(), resp.sku(), resp.nombre(), resp.descripcion(),
                             resp.precioBase(), pss.getStock(), pss.getStockMinimo(),

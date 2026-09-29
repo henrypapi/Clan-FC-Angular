@@ -1,6 +1,7 @@
 package com.tienda.controller;
 
 import com.tienda.dto.*;
+import com.tienda.model.ProductoSedeStock;
 import com.tienda.service.DashboardService;
 import com.tienda.service.ProductoSedeStockService;
 import lombok.RequiredArgsConstructor;
