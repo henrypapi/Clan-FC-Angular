@@ -7,6 +7,8 @@ import lombok.*;
 
 import java.time.OffsetDateTime;
 
+import org.hibernate.annotations.CreationTimestamp;
+
 /**
  * Usuario del sistema. Su rol define las vistas y permisos:
  * CLIENTE (catálogo/checkout), CAJERO (POS) y ADMIN (gestión).
@@ -54,6 +56,7 @@ public class Usuario {
     @Column(nullable = false)
     private Boolean activo = Boolean.TRUE;
 
+    @CreationTimestamp
     @Column(name = "fecha_creacion", nullable = false, updatable = false)
     private OffsetDateTime fechaCreacion = OffsetDateTime.now();
 }

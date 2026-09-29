@@ -15,8 +15,6 @@ public interface ProductoSedeStockRepository extends JpaRepository<ProductoSedeS
 
     Optional<ProductoSedeStock> findByProductoIdProductoAndSedeIdSede(Long idProducto, Long idSede);
 
-    List<ProductoSedeStock> findBySedeIdSedeAndStockLessThanEqualStockMinimo(Long idSede);
-
     @Query("SELECT COALESCE(SUM(p.precioBase * pss.stock), 0) " +
            "FROM ProductoSedeStock pss JOIN pss.producto p " +
            "WHERE pss.sede.idSede = :sedeId")
@@ -29,4 +27,7 @@ public interface ProductoSedeStockRepository extends JpaRepository<ProductoSedeS
     @Query("SELECT COALESCE(SUM(p.precioBase * pss.stock), 0) " +
            "FROM ProductoSedeStock pss JOIN pss.producto p")
     BigDecimal valorInventarioTotal();
+
+    @Query("SELECT p FROM ProductoSedeStock p WHERE p.sede.idSede = :idSede AND p.stock <= p.stockMinimo")
+    List<ProductoSedeStock> encontrarStockBajoPorSede(@Param("idSede") Long idSede);
 }
