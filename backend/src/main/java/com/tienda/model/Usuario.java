@@ -54,9 +54,11 @@ public class Usuario {
     private Pais pais;
 
     @Column(nullable = false)
+    @Builder.Default
     private Boolean activo = Boolean.TRUE;
 
     @CreationTimestamp
     @Column(name = "fecha_creacion", nullable = false, updatable = false)
+    @Builder.Default
     private OffsetDateTime fechaCreacion = OffsetDateTime.now();
 }

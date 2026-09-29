@@ -13,7 +13,9 @@ export interface UserSession {
   sedeId?: number;
   sedeNombre?: string;
   cajaNumero?: number;
-  credencialBase64?: string;
+  token?: string;
+  tokenType?: string;
+  expiresInMs?: number;
 }
 
 @Injectable({ providedIn: 'root' })

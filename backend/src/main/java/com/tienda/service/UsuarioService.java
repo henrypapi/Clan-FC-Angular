@@ -54,6 +54,23 @@ public class UsuarioService {
                 .toList();
     }
 
+    /**
+     * Desactiva una cuenta sin borrar sus relaciones históricas. El ADMIN no
+     * puede eliminar otra cuenta ADMIN por este endpoint.
+     */
+    @Transactional
+    public void desactivar(Long idUsuario) {
+        Usuario usuario = usuarioRepository.findById(idUsuario)
+                .orElseThrow(() -> new RecursoNoEncontradoException(
+                        "Usuario no encontrado (id=" + idUsuario + ")"));
+
+        if ("ADMIN".equalsIgnoreCase(usuario.getRol().getNombre())) {
+            throw new IllegalArgumentException("No se permite desactivar una cuenta ADMIN");
+        }
+
+        usuario.setActivo(Boolean.FALSE);
+    }
+
     /* ------------------------------ Privados ------------------------------ */
 
     private UsuarioResponse crear(String username, String email, String passwordPlano,

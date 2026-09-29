@@ -3,6 +3,8 @@ package com.tienda.exception;
 import com.tienda.exception.StockInsuficienteException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -30,6 +32,20 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, Object>> manejarArgumentoInvalido(IllegalArgumentException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(cuerpo(HttpStatus.CONFLICT, ex.getMessage()));
+    }
+
+    /** 409 — restricciones UNIQUE/FK reportadas por PostgreSQL. */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, Object>> manejarIntegridad(DataIntegrityViolationException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(cuerpo(HttpStatus.CONFLICT, ex.getMessage()));
+    }
+
+    /** 401 — usuario o contraseña incorrectos en el login. */
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<Map<String, Object>> manejarAutenticacion(AuthenticationException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(cuerpo(HttpStatus.UNAUTHORIZED, "Credenciales inválidas"));
     }
 
     /** 409 — inventario insuficiente en el checkout/POS. */

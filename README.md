@@ -1,4 +1,17 @@
-# TiendaMenos - Frontend
+# TiendaMenos
+
+Aplicación de comercio y gestión con frontend Angular y API REST Spring Boot.
+
+## Backend y entregables académicos
+
+La guía completa de instalación del backend, autenticación JWT y pruebas está
+en [`backend/README.md`](backend/README.md).
+
+- Diagrama ER en 3FN: [`backend/docs/diagrama-er.md`](backend/docs/diagrama-er.md)
+- DDL PostgreSQL: [`backend/database/schema.sql`](backend/database/schema.sql)
+- Colección Postman: [`backend/postman/TiendaMenos-API.postman_collection.json`](backend/postman/TiendaMenos-API.postman_collection.json)
+
+## Frontend
 
 Frontend de **TiendaMenos**, desarrollado con **Angular**.
 La aplicación está orientada a la gestión de productos, catálogo, carrito de compras y administración.
@@ -59,18 +72,21 @@ http://localhost:4200
 
 ## Datos de prueba
 
-Actualmente el proyecto utiliza `mock_data.json` y almacenamiento local para determinadas operaciones.
+El frontend utiliza `mock_data.json` por defecto para facilitar la demostración
+visual sin dependencias. El backend crea cuentas demo `admin`, `cajero` y
+`cliente`; las contraseñas están documentadas en `backend/README.md`.
 
-**No hay usuarios de prueba registrados actualmente.**
+Para autenticar el frontend contra la API JWT, cambia `USE_API` a `true` en
+`frontend/Clan-FC/src/core/config.ts` y ejecuta ambos proyectos.
 
 ## Pendientes
 
-* Conectar el frontend con la API real del backend.
 * Reemplazar los datos mock por datos provenientes de la API.
 * Completar la integración de productos y categorías mediante la API.
 * Integrar completamente el proceso de pedidos con el backend.
-* Configurar usuarios reales provenientes del sistema de autenticación del backend.
 
-## Estado del proyecto
+## Estado del frontend
 
-El frontend cuenta con la interfaz y funcionalidades principales implementadas, pero **la integración completa con el backend/API todavía está pendiente**.
+El frontend cuenta con la interfaz y funcionalidades principales. El inicio de
+sesión ya admite JWT al activar la API; la migración del catálogo y los pedidos
+desde los datos mock hacia PostgreSQL sigue siendo incremental.

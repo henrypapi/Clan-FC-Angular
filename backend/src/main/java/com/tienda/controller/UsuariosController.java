@@ -34,4 +34,11 @@ public class UsuariosController {
                                  @RequestParam(defaultValue = "CLIENTE") String rol) {
         return usuarioService.crearPorAdmin(request, rol.toUpperCase());
     }
+
+    /** Baja lógica: conserva ventas y auditoría, pero bloquea futuros inicios de sesión. */
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void desactivar(@PathVariable Long id) {
+        usuarioService.desactivar(id);
+    }
 }

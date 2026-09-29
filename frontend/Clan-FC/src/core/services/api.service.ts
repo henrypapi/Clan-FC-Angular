@@ -11,13 +11,13 @@ export class ApiService {
   private readonly auth = inject(AuthService);
   private readonly MOCK_KEY = 'tm_mock_db_v4';
 
-  // Configura cabeceras con Basic Auth
+  // Configura cabeceras con el JWT emitido por POST /api/auth/login.
   private getHeaders(authRequired = true): HttpHeaders {
     let headers = new HttpHeaders({ 'Content-Type': 'application/json' });
     if (authRequired) {
-      const creds = this.auth.currentUser()?.credencialBase64;
-      if (creds) {
-        headers = headers.set('Authorization', `Basic ${creds}`);
+      const token = this.auth.currentUser()?.token;
+      if (token) {
+        headers = headers.set('Authorization', `Bearer ${token}`);
       }
     }
     return headers;
@@ -60,6 +60,32 @@ export class ApiService {
 
   saveMockDb(db: any) {
     localStorage.setItem(this.MOCK_KEY, JSON.stringify(db));
+  }
+
+  async authenticateMock(username: string, password: string): Promise<any | null> {
+    const db = await this.getMockDb();
+    const normalizedUsername = username.trim().toLowerCase();
+    return (db.perfiles || db.usuarios || []).find((user: any) =>
+      user.username.toLowerCase() === normalizedUsername && user.password === password
+    ) || null;
+  }
+
+  async login(username: string, password: string): Promise<any | null> {
+    if (CONFIG.USE_API) {
+      return this.fetchApi('/auth/login', {
+        method: 'POST',
+        body: { username, password },
+        auth: false
+      });
+    }
+
+    return this.authenticateMock(username, password);
+  }
+
+  async saveMockUsers(users: any[]): Promise<void> {
+    const db = await this.getMockDb();
+    db.perfiles = users;
+    this.saveMockDb(db);
   }
 
   // Utilidad para obtener sede actual (reemplaza tu getSedeActual)

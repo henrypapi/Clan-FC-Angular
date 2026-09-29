@@ -2,6 +2,7 @@ package com.tienda.dto;
 
 import java.math.BigDecimal;
 import java.util.List;
+
 /**
  * Resumen del inventario para el dashboard.
  */

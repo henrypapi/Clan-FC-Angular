@@ -1,0 +1,149 @@
+{
+  "info": {
+    "_postman_id": "938db6f4-d474-4f2e-b13c-836165a939c1",
+    "name": "TiendaMenos API REST",
+    "description": "Colección académica para probar autenticación JWT y endpoints por rol. Ejecute primero uno de los requests Login; el script guarda automáticamente el token en la variable jwt_token.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{jwt_token}}", "type": "string" }]
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8080/api" },
+    { "key": "jwt_token", "value": "" },
+    { "key": "producto_id", "value": "1" },
+    { "key": "usuario_id", "value": "2" },
+    { "key": "sede_id", "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "Autenticación",
+      "item": [
+        {
+          "name": "Login ADMIN",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Login correcto', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.collectionVariables.set('jwt_token', body.token);",
+              "pm.test('Rol ADMIN', () => pm.expect(body.rol).to.eql('ADMIN'));"
+            ] }
+          }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin123\"\n}" },
+            "url": "{{base_url}}/auth/login"
+          }
+        },
+        {
+          "name": "Login CAJERO",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Login correcto', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.collectionVariables.set('jwt_token', body.token);",
+              "pm.test('Rol CAJERO', () => pm.expect(body.rol).to.eql('CAJERO'));"
+            ] }
+          }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"cajero\",\n  \"password\": \"cajero123\"\n}" },
+            "url": "{{base_url}}/auth/login"
+          }
+        },
+        {
+          "name": "Login CLIENTE",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Login correcto', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.collectionVariables.set('jwt_token', body.token);",
+              "pm.test('Rol CLIENTE', () => pm.expect(body.rol).to.eql('CLIENTE'));"
+            ] }
+          }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"cliente\",\n  \"password\": \"cliente123\"\n}" },
+            "url": "{{base_url}}/auth/login"
+          }
+        },
+        {
+          "name": "Registro público CLIENTE",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"cliente.demo\",\n  \"email\": \"cliente.demo@example.com\",\n  \"password\": \"Cliente123*\",\n  \"nombreCompleto\": \"Cliente Demo\",\n  \"idPais\": 1\n}" },
+            "url": "{{base_url}}/auth/registro"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Catálogo público",
+      "item": [
+        {
+          "name": "Listar productos",
+          "request": { "auth": { "type": "noauth" }, "method": "GET", "url": "{{base_url}}/productos" }
+        },
+        {
+          "name": "Obtener producto",
+          "request": { "auth": { "type": "noauth" }, "method": "GET", "url": "{{base_url}}/productos/{{producto_id}}" }
+        },
+        {
+          "name": "Listar categorías",
+          "request": { "auth": { "type": "noauth" }, "method": "GET", "url": "{{base_url}}/categorias" }
+        }
+      ]
+    },
+    {
+      "name": "Administración (ADMIN)",
+      "item": [
+        {
+          "name": "Listar usuarios",
+          "request": { "method": "GET", "url": "{{base_url}}/usuarios" }
+        },
+        {
+          "name": "Crear cajero",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"cajero.demo\",\n  \"email\": \"cajero.demo@tiendamenos.pe\",\n  \"password\": \"Cajero123*\",\n  \"nombreCompleto\": \"Cajero Demo\",\n  \"idPais\": 1\n}" },
+            "url": "{{base_url}}/usuarios?rol=CAJERO"
+          }
+        },
+        {
+          "name": "Desactivar cajero o cliente",
+          "request": { "method": "DELETE", "url": "{{base_url}}/usuarios/{{usuario_id}}" }
+        },
+        {
+          "name": "Dashboard de inventario",
+          "request": { "method": "GET", "url": "{{base_url}}/dashboard/inventario" }
+        }
+      ]
+    },
+    {
+      "name": "Caja y POS (CAJERO o ADMIN)",
+      "item": [
+        {
+          "name": "Listar cajas por sede",
+          "request": { "method": "GET", "url": "{{base_url}}/cajas/sede/{{sede_id}}" }
+        },
+        {
+          "name": "Reporte semanal",
+          "request": { "method": "GET", "url": "{{base_url}}/reportes/semanal" }
+        }
+      ]
+    }
+  ]
+}

@@ -154,8 +154,116 @@ import { ToastService } from '../../core/services/toast.service';
             }
 
             @case ('usuarios') {
-              <section class="fade-in">
-                <p class="text-slate-500">Módulo de Proveedores y Usuarios en construcción...</p>
+              <section class="grid xl:grid-cols-[380px_1fr] gap-8 items-start fade-in">
+                <aside class="card-exec p-6 xl:sticky xl:top-24">
+                  <div class="flex items-start gap-3 mb-6">
+                    <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100 text-lg">👤</span>
+                    <div>
+                      <h2 class="text-lg font-bold text-slate-800">Nuevo usuario</h2>
+                      <p class="text-xs text-slate-400 mt-0.5">Crea accesos para caja o clientes.</p>
+                    </div>
+                  </div>
+
+                  <form [formGroup]="userForm" (ngSubmit)="saveUser()" class="space-y-3 text-sm">
+                    <label class="block">
+                      <span class="text-xs font-semibold text-slate-500">Nombre completo</span>
+                      <input formControlName="nombreCompleto" placeholder="Ej. Ana Torres" class="input-exec mt-1" />
+                    </label>
+
+                    <div class="grid grid-cols-2 gap-3">
+                      <label class="block">
+                        <span class="text-xs font-semibold text-slate-500">Usuario</span>
+                        <input formControlName="username" placeholder="ana.torres" class="input-exec mt-1" autocomplete="off" />
+                      </label>
+                      <label class="block">
+                        <span class="text-xs font-semibold text-slate-500">Contraseña</span>
+                        <input formControlName="password" type="password" placeholder="Mín. 6 caracteres" class="input-exec mt-1" autocomplete="new-password" />
+                      </label>
+                    </div>
+
+                    <label class="block">
+                      <span class="text-xs font-semibold text-slate-500">Rol</span>
+                      <select formControlName="rol" class="input-exec bg-white mt-1">
+                        <option value="CAJERO">Cajero</option>
+                        <option value="CLIENTE">Cliente</option>
+                      </select>
+                    </label>
+
+                    @if (userForm.controls.rol.value === 'CAJERO') {
+                      <div class="grid grid-cols-2 gap-3">
+                        <label class="block">
+                          <span class="text-xs font-semibold text-slate-500">Sede</span>
+                          <select formControlName="sedeId" class="input-exec bg-white mt-1">
+                            @for (sede of sedes(); track sede.idSede) {
+                              <option [value]="sede.idSede">{{ sede.nombre }}</option>
+                            }
+                          </select>
+                        </label>
+                        <label class="block">
+                          <span class="text-xs font-semibold text-slate-500">N.º de caja</span>
+                          <input formControlName="cajaNumero" type="number" min="1" class="input-exec mt-1" />
+                        </label>
+                      </div>
+                    }
+
+                    <button type="submit" [disabled]="userForm.invalid" class="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-semibold py-2.5 rounded-xl transition mt-2">
+                      Crear usuario
+                    </button>
+                  </form>
+                </aside>
+
+                <div class="card-exec overflow-hidden">
+                  <header class="px-6 py-5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                      <h2 class="text-lg font-bold text-slate-800">Gestión de usuarios</h2>
+                      <p class="text-xs text-slate-400 mt-0.5">{{ usuarios().length }} accesos registrados</p>
+                    </div>
+                    <div class="flex gap-2 text-[11px] font-bold">
+                      <span class="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700">{{ cajerosCount() }} cajeros</span>
+                      <span class="px-2.5 py-1 rounded-full bg-sky-100 text-sky-700">{{ clientesCount() }} clientes</span>
+                    </div>
+                  </header>
+
+                  <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                      <thead class="thead-exec text-slate-500 uppercase text-[10px] tracking-wide">
+                        <tr>
+                          <th class="px-5 py-3">Usuario</th>
+                          <th class="px-4 py-3">Rol</th>
+                          <th class="px-4 py-3">Asignación</th>
+                          <th class="px-5 py-3 text-right">Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody class="divide-y divide-slate-100">
+                        @for (user of usuarios(); track user.username) {
+                          <tr class="hover:bg-indigo-50/40 transition">
+                            <td class="px-5 py-4">
+                              <div class="flex items-center gap-3">
+                                <span class="inline-flex h-9 w-9 items-center justify-center rounded-full font-extrabold text-xs"
+                                  [class]="user.rol === 'ADMIN' ? 'bg-amber-100 text-amber-700' : (user.rol === 'CAJERO' ? 'bg-emerald-100 text-emerald-700' : 'bg-sky-100 text-sky-700')">
+                                  {{ userInitials(user) }}
+                                </span>
+                                <div><p class="font-semibold text-slate-800">{{ user.nombreCompleto || user.username }}</p><p class="text-[11px] text-slate-400">&#64;{{ user.username }}</p></div>
+                              </div>
+                            </td>
+                            <td class="px-4 py-4"><span class="text-[10px] font-bold tracking-wide px-2.5 py-1 rounded-full"
+                              [class]="user.rol === 'ADMIN' ? 'bg-amber-100 text-amber-700' : (user.rol === 'CAJERO' ? 'bg-emerald-100 text-emerald-700' : 'bg-sky-100 text-sky-700')">{{ user.rol }}</span></td>
+                            <td class="px-4 py-4 text-xs text-slate-500">
+                              @if (user.rol === 'CAJERO') {
+                                <p class="font-semibold text-slate-700">{{ sedeName(user.sedeId) }}</p><p class="text-[11px]">Caja {{ user.cajaNumero || 1 }}</p>
+                              } @else { <span>Sin caja asignada</span> }
+                            </td>
+                            <td class="px-5 py-4 text-right">
+                              @if (user.rol !== 'ADMIN') {
+                                <button (click)="deleteUser(user)" class="bg-red-50 text-red-600 text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-red-100 transition">Eliminar</button>
+                              } @else { <span class="text-[10px] text-slate-400">Protegido</span> }
+                            </td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </section>
             }
           }
@@ -176,6 +284,8 @@ export class AdminPage implements OnInit {
   // Datos
   productos = signal<any[]>([]);
   categorias = signal<any[]>([]);
+  usuarios = signal<any[]>([]);
+  sedes = signal<any[]>([]);
 
   // Formularios Reactivos
   isEditing = signal(false);
@@ -190,15 +300,28 @@ export class AdminPage implements OnInit {
     stockMinimo: [5, Validators.required]
   });
 
+  userForm = this.fb.group({
+    nombreCompleto: ['', Validators.required],
+    username: ['', [Validators.required, Validators.pattern(/^[a-zA-Z0-9._-]+$/)]],
+    password: ['', [Validators.required, Validators.minLength(6)]],
+    rol: ['CAJERO', Validators.required],
+    sedeId: [1, Validators.required],
+    cajaNumero: [1, [Validators.required, Validators.min(1)]]
+  });
+
   // KPIs automáticos (Se recalculan solos al crear/editar/borrar)
   totalProductos = computed(() => this.productos().length);
   valorInventario = computed(() => this.productos().reduce((acc, p) => acc + (p.precioBase * p.stock), 0));
   stockBajoCount = computed(() => this.productos().filter(p => p.stock <= p.stockMinimo).length);
+  cajerosCount = computed(() => this.usuarios().filter(user => user.rol === 'CAJERO').length);
+  clientesCount = computed(() => this.usuarios().filter(user => user.rol === 'CLIENTE').length);
 
   async ngOnInit() {
     const db = await this.api.getMockDb();
     this.productos.set(db.productos || []);
     this.categorias.set(db.categorias || []);
+    this.usuarios.set(db.perfiles || db.usuarios || []);
+    this.sedes.set(db.sedes || []);
   }
 
   saveProduct() {
@@ -262,5 +385,54 @@ export class AdminPage implements OnInit {
         this.cancelEdit();
       }
     }
+  }
+
+  async saveUser() {
+    if (this.userForm.invalid) return;
+
+    const value = this.userForm.getRawValue();
+    const username = value.username!.trim().toLowerCase();
+
+    if (this.usuarios().some(user => user.username.toLowerCase() === username)) {
+      this.toast.show('Ese nombre de usuario ya está registrado', 'error');
+      return;
+    }
+
+    const selectedSede = this.sedes().find(sede => sede.idSede === Number(value.sedeId));
+    const newUser = {
+      username,
+      password: value.password,
+      nombreCompleto: value.nombreCompleto!.trim(),
+      rol: value.rol,
+      idPais: 1,
+      sedeId: value.rol === 'CAJERO' ? Number(value.sedeId) : null,
+      sedeNombre: value.rol === 'CAJERO' ? selectedSede?.nombre : null,
+      cajaNumero: value.rol === 'CAJERO' ? Number(value.cajaNumero) : null
+    };
+
+    const updatedUsers = [...this.usuarios(), newUser];
+    this.usuarios.set(updatedUsers);
+    await this.api.saveMockUsers(updatedUsers);
+    this.userForm.reset({ rol: 'CAJERO', sedeId: 1, cajaNumero: 1 });
+    this.toast.show(`✔ Usuario ${username} creado correctamente`, 'exito');
+  }
+
+  async deleteUser(userToDelete: any) {
+    if (userToDelete.rol === 'ADMIN') return;
+    if (!confirm(`¿Eliminar al usuario ${userToDelete.username}? Ya no podrá iniciar sesión.`)) return;
+
+    const updatedUsers = this.usuarios().filter(user => user.username !== userToDelete.username);
+    this.usuarios.set(updatedUsers);
+    await this.api.saveMockUsers(updatedUsers);
+    this.toast.show(`Usuario ${userToDelete.username} eliminado`, 'info');
+  }
+
+  sedeName(sedeId: number | null): string {
+    return this.sedes().find(sede => sede.idSede === Number(sedeId))?.nombre || 'Sin sede';
+  }
+
+  userInitials(user: any): string {
+    const name = user.nombreCompleto || user.username;
+    return name.split(' ').slice(0, 2).map((part: string) => part[0]).join('').toUpperCase();
   }
 }

@@ -10,8 +10,12 @@ import { Toast } from './shared/toast';
   imports: [RouterOutlet, Navbar, Toast],
   template: `
     <!-- Barra de anuncios -->
-    <div class="bg-slate-900 text-slate-200 text-[11px] md:text-xs text-center py-2 px-4 tracking-wide">
-      🚚 Envío GRATIS en compras +S/ 999 &nbsp;·&nbsp; 💳 12 MSI con tarjetas participantes &nbsp;·&nbsp; 🔄 30 días de garantía
+    <div class="announcement-bar">
+      <div class="store-shell announcement-content">
+        <span>Envíos a todo el Perú</span>
+        <span class="announcement-highlight">Envío gratis desde S/ 999</span>
+        <span class="announcement-extra">Compra segura · Garantía incluida</span>
+      </div>
     </div>
     
     <!-- Navbar Reactivo -->

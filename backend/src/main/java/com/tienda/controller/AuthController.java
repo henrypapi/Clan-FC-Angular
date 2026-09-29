@@ -1,5 +1,7 @@
 package com.tienda.controller;
 
+import com.tienda.dto.LoginRequest;
+import com.tienda.dto.LoginResponse;
 import com.tienda.dto.RegistroUsuarioRequest;
 import com.tienda.dto.UsuarioResponse;
 import com.tienda.model.Usuario;
@@ -8,16 +10,15 @@ import com.tienda.service.UsuarioService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.Authentication;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.Map;
+import com.tienda.security.JwtService;
 
 /**
- * Autenticación y REGISTRO.
+ * Autenticación JWT y registro público.
  *
- *  GET  /api/auth/login    -> valida Basic Auth (Spring Security) y devuelve
- *                             { username, rol, país, bandera } para la sesión.
+ *  POST /api/auth/login    -> valida credenciales y devuelve JWT Bearer.
  *  POST /api/auth/registro -> AUTOREGISTRO público: crea cuenta CLIENTE con
  *                             país fiscal (define su IVA de consumidor final).
  */
@@ -28,31 +29,29 @@ public class AuthController {
 
     private final UsuarioService usuarioService;
     private final UsuarioRepository usuarioRepository;
+    private final AuthenticationManager authenticationManager;
+    private final JwtService jwtService;
 
-    @GetMapping("/login")
-    public Map<String, Object> login(Authentication authentication) {
-        // Extrae el rol sin el prefijo "ROLE_" que agrega Spring Security.
-        String rol = authentication.getAuthorities().stream()
-                .map(Object::toString)
-                .filter(a -> a.startsWith("ROLE_"))
-                .map(a -> a.substring(5))
-                .findFirst()
-                .orElse("");
+    @PostMapping("/login")
+    public LoginResponse login(@Valid @RequestBody LoginRequest request) {
+        authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(request.username(), request.password()));
 
-        // País del usuario para pintar banderas en la UI y resolver su IVA.
-        Usuario usuario = usuarioRepository.findByUsernameIgnoreCase(authentication.getName()).orElse(null);
-        var pais = (usuario != null) ? usuario.getPais() : null;
+        Usuario usuario = usuarioRepository.findByUsernameIgnoreCase(request.username())
+                .orElseThrow();
+        String token = jwtService.generateToken(usuario);
+        var pais = usuario.getPais();
 
-        Map<String, Object> datos = new java.util.HashMap<>();
-        datos.put("username", authentication.getName());
-        datos.put("nombreCompleto", usuario != null ? usuario.getNombreCompleto() : null);
-        datos.put("rol", rol);
-        datos.put("paisCodigo", pais != null ? pais.getCodigoIso2() : null);
-        datos.put("paisNombre", pais != null ? pais.getNombre() : null);
-        datos.put("banderaEmoji",
+        return new LoginResponse(
+                token,
+                "Bearer",
+                jwtService.getExpirationMs(),
+                usuario.getUsername(),
+                usuario.getNombreCompleto(),
+                usuario.getRol().getNombre(),
+                pais != null ? pais.getCodigoIso2() : null,
+                pais != null ? pais.getNombre() : null,
                 com.tienda.model.Pais.banderaDesde(pais != null ? pais.getCodigoIso2() : null));
-        datos.put("mensaje", "Autenticación exitosa");
-        return datos;
     }
 
     /** Registro PÚBLICO: no requiere sesión; asigna rol CLIENTE. */

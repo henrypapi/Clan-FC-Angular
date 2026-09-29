@@ -1,0 +1,5 @@
+.m2-cache/
+backend/target/
+frontend/Clan-FC/node_modules/
+frontend/Clan-FC/dist/
+

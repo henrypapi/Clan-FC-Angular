@@ -1,19 +1,26 @@
 package com.tienda.config;
 
+import com.tienda.security.JwtAuthenticationFilter;
 import com.tienda.security.UsuarioDetailsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -21,15 +28,15 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.List;
 
 /**
- * Configuración base de seguridad (Entregable 1).
+ * Configuración stateless con JWT.
  *
  * Modelo de autorización:
  *  - Lecturas del catálogo (GET productos/categorías): público.
  *  - Escrituras de inventario: solo ROLE_ADMIN.
  *  - Resto de endpoints futuros (/api/ordenes, /api/dashboard): autenticados.
  *
- * Autenticación HTTP Basic sin estado (stateless); en Entregables posteriores
- * puede migrarse a JWT manteniendo las mismas reglas de roles.
+ * El cliente obtiene un token en POST /api/auth/login y lo envía como
+ * Authorization: Bearer &lt;token&gt; en los endpoints protegidos.
  */
 @Configuration
 @EnableWebSecurity
@@ -38,6 +45,7 @@ import java.util.List;
 public class SecurityConfig {
 
     private final UsuarioDetailsService usuarioDetailsService;
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -46,9 +54,11 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(ex -> ex.authenticationEntryPoint(
+                        new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .authorizeHttpRequests(auth -> auth
                         // --- Registro público de clientes (autoregistro) ---
-                        .requestMatchers(HttpMethod.POST, "/api/auth/registro").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/registro").permitAll()
                         // --- Catálogo público (vista CLIENTE) ---
                         .requestMatchers(HttpMethod.GET, "/api/productos/**", "/api/categorias/**").permitAll()
                         // --- Gestión de inventario (vista ADMIN) ---
@@ -75,8 +85,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         // --- Órdenes y todo lo demás requieren sesión ---
                         .anyRequest().authenticated())
-                // Basic Auth temporal; valida contra la tabla usuarios vía UsuarioDetailsService.
-                .httpBasic(Customizer.withDefaults());
+                .authenticationProvider(authenticationProvider())
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
@@ -85,6 +95,18 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public DaoAuthenticationProvider authenticationProvider() {
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider(usuarioDetailsService);
+        provider.setPasswordEncoder(passwordEncoder());
+        return provider;
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
+        return configuration.getAuthenticationManager();
     }
 
     /**
@@ -96,10 +118,9 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of(
                 "http://127.0.0.1:5500", "http://localhost:5500",
-                "http://127.0.0.1:5501", "http://localhost:5501"));
+                "http://127.0.0.1:5501", "http://localhost:5501",
+                "http://127.0.0.1:4200", "http://localhost:4200"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("*"));
-        // Basic Auth viaja en el header Authorization.
         config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/api/**", config);

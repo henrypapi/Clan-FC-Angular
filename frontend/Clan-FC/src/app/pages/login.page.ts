@@ -4,6 +4,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
+import { ApiService } from '../../core/services/api.service';
 
 @Component({
   selector: 'app-login',
@@ -54,6 +55,7 @@ export class LoginPage {
   private auth = inject(AuthService);
   private toast = inject(ToastService);
   private router = inject(Router);
+  private api = inject(ApiService);
 
   isLoading = signal(false);
 
@@ -69,19 +71,33 @@ export class LoginPage {
     const { username, password } = this.loginForm.value;
 
     try {
-      // NOTA: Para esta demo, simularemos el login validando si es admin/cajero/cliente.
-      // Aquí enlazarías la llamada real HTTP o al Mock de tu ApiService.
-      const fakeSession = {
-        username: username!,
-        rol: username === 'admin' ? 'ADMIN' : (username === 'cajero' ? 'CAJERO' : 'CLIENTE'),
-        banderaEmoji: '🇵🇪'
+      const user = await this.api.login(username!, password!);
+
+      if (!user) {
+        this.toast.show('Usuario o contraseña incorrectos', 'error');
+        return;
+      }
+
+      const session = {
+        username: user.username,
+        rol: user.rol,
+        nombreCompleto: user.nombreCompleto,
+        paisCodigo: user.paisCodigo,
+        paisNombre: user.paisNombre,
+        banderaEmoji: user.banderaEmoji || '🇵🇪',
+        sedeId: user.sedeId,
+        sedeNombre: user.sedeNombre,
+        cajaNumero: user.cajaNumero,
+        token: user.token,
+        tokenType: user.tokenType,
+        expiresInMs: user.expiresInMs
       };
       
-      this.auth.saveSession(fakeSession);
-      this.toast.show(`✔ Bienvenido ${fakeSession.username}`, 'exito');
+      this.auth.saveSession(session);
+      this.toast.show(`✔ Bienvenido ${session.username}`, 'exito');
       
       // Redirección según rol (reemplaza tu diccionario DESTINO_POR_ROL)
-      const destination = fakeSession.rol === 'ADMIN' ? '/admin' : (fakeSession.rol === 'CAJERO' ? '/pos' : '/');
+      const destination = session.rol === 'ADMIN' ? '/admin' : (session.rol === 'CAJERO' ? '/pos' : '/');
       this.router.navigate([destination]);
     } catch (error) {
       this.toast.show('Error de autenticación', 'error');
