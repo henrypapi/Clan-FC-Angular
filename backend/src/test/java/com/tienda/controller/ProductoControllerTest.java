@@ -7,8 +7,8 @@ import com.tienda.service.ProductoService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.bean.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
@@ -32,7 +32,7 @@ class ProductoControllerTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @MockBean
+    @MockitoBean
     private ProductoService productoService;
 
     @Test
@@ -67,7 +67,7 @@ class ProductoControllerTest {
     @WithMockUser(roles = "ADMIN")
     void crearProductoAdmin() throws Exception {
         ProductoRequest request = new ProductoRequest("AUD-099", "Nuevo", "Desc",
-                BigDecimal.valueOf(299), 10, 5, 1L, 12, 1L, null, true);
+                BigDecimal.valueOf(299), 1L, 10, 5, 1L, 12, 1L, null, true);
         ProductoResponse respuesta = new ProductoResponse(1L, "AUD-099", "Nuevo", "Desc",
                 BigDecimal.valueOf(299), 10, 5, false, 1L, "Audio", 12, 1L, "AudioMax", null, true);
         when(productoService.crear(any())).thenReturn(respuesta);
@@ -84,7 +84,7 @@ class ProductoControllerTest {
     @WithMockUser(roles = "CLIENTE")
     void crearProductoCliente() throws Exception {
         ProductoRequest request = new ProductoRequest("AUD-099", "Nuevo", null,
-                BigDecimal.valueOf(100), 5, 5, 1L, 12, null, null, true);
+                BigDecimal.valueOf(100), 1L, 5, 5, 1L, 12, null, null, true);
 
         mockMvc.perform(post("/api/productos")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -97,7 +97,7 @@ class ProductoControllerTest {
     @WithMockUser(roles = "ADMIN")
     void actualizarProducto() throws Exception {
         ProductoRequest request = new ProductoRequest("AUD-001", "Audífonos V2", "Actualizado",
-                BigDecimal.valueOf(599), 30, 5, 1L, 12, 1L, null, true);
+                BigDecimal.valueOf(599), 1L, 30, 5, 1L, 12, 1L, null, true);
         ProductoResponse respuesta = new ProductoResponse(1L, "AUD-001", "Audífonos V2", "Actualizado",
                 BigDecimal.valueOf(599), 30, 5, false, 1L, "Audio", 12, 1L, "AudioMax", null, true);
         when(productoService.actualizar(1L, request)).thenReturn(respuesta);
