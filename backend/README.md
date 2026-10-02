@@ -7,6 +7,7 @@ JPA/Hibernate, PostgreSQL y autenticación JWT.
 
 - Diagrama ER y justificación de 3FN: [`docs/diagrama-er.md`](docs/diagrama-er.md)
 - DDL PostgreSQL: [`database/schema.sql`](database/schema.sql)
+- Migración desde el esquema anterior: [`database/migration_v2_normalizacion.sql`](database/migration_v2_normalizacion.sql)
 - Datos mínimos de demostración: [`database/seed.sql`](database/seed.sql)
 - Colección Postman: [`postman/TiendaMenos-API.postman_collection.json`](postman/TiendaMenos-API.postman_collection.json)
 - API REST: controladores en `src/main/java/com/tienda/controller`
@@ -33,10 +34,28 @@ psql -U postgres -d tiendamenos -f database/seed.sql
 En pgAdmin se puede crear una base llamada `tiendamenos` y ejecutar, en orden,
 el contenido de `schema.sql` y `seed.sql` con Query Tool.
 
+Si ya se creó la base con una versión anterior, primero haga una copia de
+seguridad y ejecute:
+
+```bash
+psql -U postgres -d tiendamenos -f database/migration_v2_normalizacion.sql
+```
+
 El esquema está en tercera forma normal (3FN), usa claves foráneas, restricciones
 `CHECK`, índices para las relaciones y tipos `numeric` para valores monetarios.
 Hibernate está configurado con `ddl-auto=validate`: valida el modelo, pero no
 modifica el esquema entregado.
+
+### Por qué el modelo sí está en 3FN
+
+- `productos` contiene únicamente datos del catálogo; el stock no se repite allí.
+- `producto_sede_stock` es la única fuente de inventario y su clave candidata es
+  `(id_producto, id_sede)`.
+- Toda orden, incidencia y movimiento de almacén identifica la sede afectada.
+- `caja_movimientos` referencia la caja y no repite la sede, que se obtiene desde
+  `cajas`; así se elimina la dependencia transitiva.
+- Claves foráneas, importes, cantidades, estados y tasas tienen restricciones
+  `NOT NULL`/`CHECK`, y todas las claves foráneas de consulta tienen índice.
 
 ## 2. Configurar variables
 
@@ -144,10 +163,19 @@ integridad del historial y evita nuevos inicios de sesión.
 Las variables `producto_id`, `usuario_id` y `sede_id` se pueden modificar en la
 colección según los registros existentes.
 
+Las ventas y los movimientos de almacén reciben `sedeId`. Esto evita descontar
+un stock global ambiguo y permite auditar exactamente qué sucursal fue afectada.
+
 ## Compilar y ejecutar pruebas
 
 ```powershell
 .\mvnw.cmd test
+```
+
+Si Maven no puede escribir en el repositorio global, use uno dentro del proyecto:
+
+```powershell
+.\mvnw.cmd "-Dmaven.repo.local=.m2-cache" test
 ```
 
 Para compilar sin iniciar PostgreSQL:
