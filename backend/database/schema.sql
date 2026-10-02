@@ -42,7 +42,7 @@ create table if not exists proveedores (
 
 create table if not exists sedes (
     id_sede bigint generated always as identity primary key,
-    nombre varchar(80) not null,
+    nombre varchar(80) not null unique,
     direccion varchar(120),
     telefono varchar(20),
     activa boolean not null default true,
@@ -70,16 +70,12 @@ create table if not exists productos (
     nombre varchar(120) not null,
     descripcion varchar(500),
     precio_base numeric(12,2) not null,
-    stock integer not null default 0,
-    stock_minimo integer not null default 5,
     garantia_meses integer not null default 12,
     imagen_url varchar(300),
     activo boolean not null default true,
     fecha_creacion timestamptz not null default now(),
     fecha_actualizacion timestamptz not null default now(),
     constraint productos_precio_check check (precio_base >= 0),
-    constraint productos_stock_check check (stock >= 0),
-    constraint productos_stock_minimo_check check (stock_minimo >= 0),
     constraint productos_garantia_check check (garantia_meses >= 0)
 );
 
@@ -128,6 +124,7 @@ create table if not exists producto_sede_stock (
 create table if not exists ordenes (
     id_orden bigint generated always as identity primary key,
     id_usuario bigint not null references usuarios(id_usuario) on update restrict on delete restrict,
+    id_sede bigint not null references sedes(id_sede) on update restrict on delete restrict,
     id_empresa_cliente bigint references empresas_clientes(id_empresa) on update restrict on delete set null,
     id_pais bigint references paises(id_pais) on update restrict on delete set null,
     folio varchar(30) not null unique,
@@ -164,6 +161,7 @@ create table if not exists detalle_ordenes (
 create table if not exists movimientos_almacen (
     id_movimiento bigint generated always as identity primary key,
     id_producto bigint not null references productos(id_producto) on update restrict on delete restrict,
+    id_sede bigint not null references sedes(id_sede) on update restrict on delete restrict,
     id_proveedor bigint references proveedores(id_proveedor) on update restrict on delete set null,
     id_usuario bigint not null references usuarios(id_usuario) on update restrict on delete restrict,
     tipo varchar(15) not null,
@@ -180,6 +178,7 @@ create table if not exists movimientos_almacen (
 create table if not exists incidencias (
     id_incidencia bigint generated always as identity primary key,
     id_producto bigint not null references productos(id_producto) on update restrict on delete restrict,
+    id_sede bigint not null references sedes(id_sede) on update restrict on delete restrict,
     id_orden bigint references ordenes(id_orden) on update restrict on delete set null,
     reportado_por bigint not null references usuarios(id_usuario) on update restrict on delete restrict,
     tipo varchar(15) not null,
@@ -197,13 +196,13 @@ create table if not exists caja_movimientos (
     id_movimiento bigint generated always as identity primary key,
     id_caja bigint not null references cajas(id_caja) on update restrict on delete restrict,
     id_usuario bigint not null references usuarios(id_usuario) on update restrict on delete restrict,
-    id_sede bigint not null references sedes(id_sede) on update restrict on delete restrict,
     tipo varchar(20) not null,
     monto numeric(12,2) not null,
     saldo_despues numeric(12,2) not null,
     referencia varchar(100),
     fecha timestamptz not null default now(),
     constraint caja_movimientos_tipo_check check (tipo in ('FONDOS_INICIALES', 'VENTA', 'RETIRO', 'AJUSTE')),
+    constraint caja_movimientos_monto_check check (monto >= 0),
     constraint caja_movimientos_saldo_check check (saldo_despues >= 0)
 );
 
@@ -217,20 +216,26 @@ create index if not exists empresas_id_pais_idx on empresas_clientes (id_pais);
 create index if not exists cajas_id_usuario_idx on cajas (id_usuario);
 create index if not exists producto_sede_id_sede_idx on producto_sede_stock (id_sede);
 create index if not exists ordenes_id_usuario_idx on ordenes (id_usuario);
+create index if not exists ordenes_id_sede_idx on ordenes (id_sede);
 create index if not exists ordenes_id_empresa_idx on ordenes (id_empresa_cliente);
 create index if not exists ordenes_id_pais_idx on ordenes (id_pais);
 create index if not exists ordenes_estado_fecha_idx on ordenes (estado, fecha_creacion desc);
 create index if not exists detalle_id_orden_idx on detalle_ordenes (id_orden);
 create index if not exists detalle_id_producto_idx on detalle_ordenes (id_producto);
 create index if not exists movimientos_id_producto_idx on movimientos_almacen (id_producto);
+create index if not exists movimientos_id_sede_idx on movimientos_almacen (id_sede);
 create index if not exists movimientos_id_proveedor_idx on movimientos_almacen (id_proveedor);
 create index if not exists movimientos_id_usuario_idx on movimientos_almacen (id_usuario);
 create index if not exists incidencias_id_producto_idx on incidencias (id_producto);
+create index if not exists incidencias_id_sede_idx on incidencias (id_sede);
 create index if not exists incidencias_id_orden_idx on incidencias (id_orden);
 create index if not exists incidencias_reportado_por_idx on incidencias (reportado_por);
 create index if not exists incidencias_estado_fecha_idx on incidencias (estado, fecha_reporte desc);
 create index if not exists caja_movimientos_id_caja_idx on caja_movimientos (id_caja);
 create index if not exists caja_movimientos_id_usuario_idx on caja_movimientos (id_usuario);
-create index if not exists caja_movimientos_id_sede_idx on caja_movimientos (id_sede);
+
+-- Unicidad sin depender de mayúsculas/minúsculas en credenciales.
+create unique index if not exists usuarios_username_lower_uk on usuarios (lower(username));
+create unique index if not exists usuarios_email_lower_uk on usuarios (lower(email));
 
 commit;
