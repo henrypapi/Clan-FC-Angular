@@ -10,6 +10,9 @@ public record IncidenciaRequest(
         @NotNull(message = "El producto es obligatorio")
         Long productoId,
 
+        @NotNull(message = "La sede es obligatoria")
+        Long sedeId,
+
         Long ordenId,
 
         /** DEVOLUCION | DEFECTO | GARANTIA (normalizado en el servicio). */

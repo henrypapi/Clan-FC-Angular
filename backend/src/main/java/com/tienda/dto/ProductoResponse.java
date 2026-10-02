@@ -28,6 +28,11 @@ public record ProductoResponse(
         Boolean activo
 ) {
     public static ProductoResponse from(Producto p) {
+        return from(p, 0, 0);
+    }
+
+    /** El stock proviene de producto_sede_stock, nunca del catálogo productos. */
+    public static ProductoResponse from(Producto p, Integer stock, Integer stockMinimo) {
         Proveedor proveedor = p.getProveedor();
         return new ProductoResponse(
                 p.getIdProducto(),
@@ -35,9 +40,9 @@ public record ProductoResponse(
                 p.getNombre(),
                 p.getDescripcion(),
                 p.getPrecioBase(),
-                p.getStock(),
-                p.getStockMinimo(),
-                p.getStock() <= p.getStockMinimo(),
+                stock,
+                stockMinimo,
+                stock <= stockMinimo,
                 p.getCategoria().getIdCategoria(),
                 p.getCategoria().getNombre(),
                 p.getGarantiaMeses(),

@@ -23,6 +23,9 @@ public record ProductoRequest(
         @NotNull @DecimalMin(value = "0.00", message = "El precio no puede ser negativo")
         BigDecimal precioBase,
 
+        @NotNull(message = "La sede es obligatoria")
+        Long sedeId,
+
         @NotNull @PositiveOrZero(message = "El stock no puede ser negativo")
         Integer stock,
 

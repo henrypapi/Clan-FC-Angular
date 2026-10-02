@@ -11,6 +11,9 @@ public record MovimientoAlmacenRequest(
         @NotNull(message = "El producto es obligatorio")
         Long productoId,
 
+        @NotNull(message = "La sede es obligatoria")
+        Long sedeId,
+
         @NotNull @Min(1) @Max(10_000)
         Integer cantidad,
 

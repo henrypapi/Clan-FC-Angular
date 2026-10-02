@@ -15,6 +15,10 @@ public record CheckoutRequest(
         @Valid @NotEmpty(message = "El carrito está vacío")
         List<ItemCheckoutRequest> items,
 
+        /** Sede que atenderá la venta y de cuyo inventario se descuenta. */
+        @jakarta.validation.constraints.NotNull(message = "La sede es obligatoria")
+        Long sedeId,
+
         /**
          * Empresa cliente que compra (B2B) — define el régimen fiscal y por
          * tanto la tasa de IVA. NULL = consumidor final (tasa general).
@@ -26,8 +30,12 @@ public record CheckoutRequest(
 ) {
         /** Línea del carrito: referencia al producto + cantidad deseada. */
         public record ItemCheckoutRequest(
+                @jakarta.validation.constraints.NotNull
                 Long productoId,
-                @Valid Integer cantidad
+                @jakarta.validation.constraints.NotNull
+                @jakarta.validation.constraints.Min(1)
+                @jakarta.validation.constraints.Max(1000)
+                Integer cantidad
         ) {
         }
 }
