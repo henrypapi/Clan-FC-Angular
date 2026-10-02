@@ -1,8 +1,11 @@
 package com.tienda.service;
 
+import com.tienda.dto.MovimientoAlmacenRequest;
 import com.tienda.exception.RecursoNoEncontradoException;
 import com.tienda.model.*;
-import com.tienda.repository.*;
+import com.tienda.repository.MovimientoAlmacenRepository;
+import com.tienda.repository.ProductoSedeStockRepository;
+import com.tienda.repository.ProveedorRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -20,95 +23,61 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 @DisplayName("AlmacenService — Unit Tests")
 class AlmacenServiceTest {
-
-    @Mock private MovimientoAlmacenRepository movimientoAlmacenRepository;
-    @Mock private ProductoRepository productoRepository;
+    @Mock private MovimientoAlmacenRepository movimientoRepository;
     @Mock private ProveedorRepository proveedorRepository;
-    @Mock private UsuarioRepository usuarioRepository;
-
-    @InjectMocks
-    private AlmacenService almacenService;
+    @Mock private ProductoSedeStockRepository stockRepository;
+    @InjectMocks private AlmacenService almacenService;
 
     private Producto producto;
-    private Proveedor proveedor;
+    private ProductoSedeStock inventario;
     private Usuario usuario;
 
     @BeforeEach
     void setUp() {
-        proveedor = Proveedor.builder().idProveedor(1L).nombre("AudioMax").build();
+        Sede sede = Sede.builder().idSede(1L).nombre("Lima Centro").activa(true).build();
+        producto = Producto.builder().idProducto(1L).sku("AUD-001")
+                .nombre("Audífonos").activo(true).build();
+        inventario = ProductoSedeStock.builder().producto(producto).sede(sede)
+                .stock(28).stockMinimo(5).build();
         usuario = Usuario.builder().idUsuario(1L).username("admin").build();
-        producto = Producto.builder()
-                .idProducto(1L).sku("AUD-001").nombre("Audífonos")
-                .stock(28).proveedor(proveedor).activo(true).build();
     }
 
     @Test
-    @DisplayName("Registrar entrada de mercancía")
-    void registrarEntrada() {
-        when(productoRepository.findById(1L)).thenReturn(Optional.of(producto));
-        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
-        when(proveedorRepository.findById(1L)).thenReturn(Optional.of(proveedor));
-        when(productoRepository.save(any())).thenReturn(producto);
-        when(movimientoAlmacenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+    void registrarEntradaActualizaInventarioDeLaSede() {
+        when(stockRepository.findForUpdate(1L, 1L)).thenReturn(Optional.of(inventario));
+        when(movimientoRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        var request = new com.tienda.dto.MovimientoAlmacenRequest(
-                1L, 10, "ENTRADA", 1L, "FAC-001", "Compra a proveedor");
+        var respuesta = almacenService.registrar(producto,
+                new MovimientoAlmacenRequest(1L, 1L, 10, "ENTRADA", null, "FAC-001", "Compra"),
+                usuario);
 
-        var resultado = almacenService.registrarMovimiento(request, 1L);
-
-        assertThat(resultado).isNotNull();
-        verify(productoRepository).save(any(Producto.class));
+        assertThat(inventario.getStock()).isEqualTo(38);
+        assertThat(respuesta.sedeId()).isEqualTo(1L);
+        verify(movimientoRepository).save(any(MovimientoAlmacen.class));
     }
 
     @Test
-    @DisplayName("Registrar merma reduce stock")
-    void registrarMerma() {
-        when(productoRepository.findById(1L)).thenReturn(Optional.of(producto));
-        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
-        when(productoRepository.save(any())).thenReturn(producto);
-        when(movimientoAlmacenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-
-        var request = new com.tienda.dto.MovimientoAlmacenRequest(
-                1L, 5, "MERMA", null, null, "Producto dañado");
-
-        var resultado = almacenService.registrarMovimiento(request, 1L);
-
-        assertThat(producto.getStock()).isEqualTo(23); // 28 - 5
-    }
-
-    @Test
-    @DisplayName("Stock insuficiente para salida lanza excepción")
-    void stockInsuficienteSalida() {
-        when(productoRepository.findById(1L)).thenReturn(Optional.of(producto));
-        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
-
-        var request = new com.tienda.dto.MovimientoAlmacenRequest(
-                1L, 100, "MERMA", null, null, "Demasiados dañados");
-
-        assertThatThrownBy(() -> almacenService.registrarMovimiento(request, 1L))
+    void mermaConStockInsuficienteEsRechazada() {
+        when(stockRepository.findForUpdate(1L, 1L)).thenReturn(Optional.of(inventario));
+        assertThatThrownBy(() -> almacenService.registrar(producto,
+                new MovimientoAlmacenRequest(1L, 1L, 100, "MERMA", null, null, "Dañados"),
+                usuario))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Stock insuficiente");
     }
 
     @Test
-    @DisplayName("Listar movimientos recientes")
-    void listarMovimientos() {
-        when(movimientoAlmacenRepository.findTop100ByOrderByFechaDesc()).thenReturn(List.of());
-
-        var resultado = almacenService.listarRecientes();
-
-        assertThat(resultado).isEmpty();
+    void productoSinInventarioEnSedeEsRechazado() {
+        when(stockRepository.findForUpdate(1L, 9L)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> almacenService.registrar(producto,
+                new MovimientoAlmacenRequest(1L, 9L, 1, "ENTRADA", null, null, null), usuario))
+                .isInstanceOf(RecursoNoEncontradoException.class)
+                .hasMessageContaining("sede 9");
     }
 
     @Test
-    @DisplayName("Producto inexistente lanza excepción")
-    void productoInexistente() {
-        when(productoRepository.findById(99L)).thenReturn(Optional.empty());
-
-        var request = new com.tienda.dto.MovimientoAlmacenRequest(
-                99L, 10, "ENTRADA", null, null, null);
-
-        assertThatThrownBy(() -> almacenService.registrarMovimiento(request, 1L))
-                .isInstanceOf(RecursoNoEncontradoException.class);
+    void listarMovimientosRecientes() {
+        when(movimientoRepository.findTop100ByOrderByFechaDesc()).thenReturn(List.of());
+        assertThat(almacenService.listarRecientes()).isEmpty();
     }
 }

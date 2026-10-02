@@ -24,6 +24,7 @@ class DashboardServiceTest {
     @Mock private SedeRepository sedeRepository;
     @Mock private CajaRepository cajaRepository;
     @Mock private CajaMovimientoRepository cajaMovimientoRepository;
+    @Mock private OrdenRepository ordenRepository;
     @Mock private ProductoSedeStockRepository productoSedeStockRepository;
     @Mock private ProductoRepository productoRepository;
     @Mock private IncidenciaRepository incidenciaRepository;
@@ -43,8 +44,8 @@ class DashboardServiceTest {
     @DisplayName("Comparación de sedes retorna lista de resúmenes")
     void compararSedes() {
         when(sedeRepository.findAllByActivaTrueOrderByNombreAsc()).thenReturn(List.of(sede));
-        when(cajaRepository.sumarEfectivoPorSede(1L)).thenReturn(BigDecimal.valueOf(5000));
-        when(cajaMovimientoRepository.findAllBySedeIdSedeOrderByFechaDesc(1L)).thenReturn(List.of());
+        when(ordenRepository.sumarTotalPagadoPorSede(1L)).thenReturn(BigDecimal.valueOf(5000));
+        when(ordenRepository.countBySedeIdSedeAndEstado(1L, EstadoOrden.PAGADA)).thenReturn(4L);
         when(productoSedeStockRepository.contarStockBajoPorSede(1L)).thenReturn(2L);
         when(productoSedeStockRepository.findBySedeIdSede(1L)).thenReturn(List.of());
 
@@ -60,10 +61,8 @@ class DashboardServiceTest {
     void compararMultiplesSedes() {
         Sede sede2 = Sede.builder().idSede(2L).nombre("Chorrillos").activa(true).build();
         when(sedeRepository.findAllByActivaTrueOrderByNombreAsc()).thenReturn(List.of(sede, sede2));
-        when(cajaRepository.sumarEfectivoPorSede(1L)).thenReturn(BigDecimal.valueOf(5000));
-        when(cajaRepository.sumarEfectivoPorSede(2L)).thenReturn(BigDecimal.valueOf(3000));
-        when(cajaMovimientoRepository.findAllBySedeIdSedeOrderByFechaDesc(1L)).thenReturn(List.of());
-        when(cajaMovimientoRepository.findAllBySedeIdSedeOrderByFechaDesc(2L)).thenReturn(List.of());
+        when(ordenRepository.sumarTotalPagadoPorSede(1L)).thenReturn(BigDecimal.valueOf(5000));
+        when(ordenRepository.sumarTotalPagadoPorSede(2L)).thenReturn(BigDecimal.valueOf(3000));
         when(productoSedeStockRepository.contarStockBajoPorSede(1L)).thenReturn(1L);
         when(productoSedeStockRepository.contarStockBajoPorSede(2L)).thenReturn(3L);
         when(productoSedeStockRepository.findBySedeIdSede(1L)).thenReturn(List.of());
@@ -83,7 +82,7 @@ class DashboardServiceTest {
         Producto producto = Producto.builder().idProducto(1L).nombre("Audífonos").build();
         ProductoSedeStock pss = ProductoSedeStock.builder()
                 .producto(producto).sede(sede).stock(2).stockMinimo(5).build();
-        when(productoSedeStockRepository.findBySedeIdSedeAndStockLessThanEqualStockMinimo(1L))
+        when(productoSedeStockRepository.encontrarStockBajoPorSede(1L))
                 .thenReturn(List.of(pss));
         when(incidenciaRepository.findAllByOrderByFechaReporteDesc()).thenReturn(List.of());
 
@@ -100,7 +99,7 @@ class DashboardServiceTest {
         Producto producto = Producto.builder().idProducto(1L).nombre("Laptop").build();
         ProductoSedeStock pss = ProductoSedeStock.builder()
                 .producto(producto).sede(sede).stock(0).stockMinimo(5).build();
-        when(productoSedeStockRepository.findBySedeIdSedeAndStockLessThanEqualStockMinimo(1L))
+        when(productoSedeStockRepository.encontrarStockBajoPorSede(1L))
                 .thenReturn(List.of(pss));
         when(incidenciaRepository.findAllByOrderByFechaReporteDesc()).thenReturn(List.of());
 
@@ -114,7 +113,7 @@ class DashboardServiceTest {
     @DisplayName("Alertas de incidencias pendientes")
     void alertasIncidenciasPendientes() {
         when(sedeRepository.findAllByActivaTrueOrderByNombreAsc()).thenReturn(List.of(sede));
-        when(productoSedeStockRepository.findBySedeIdSedeAndStockLessThanEqualStockMinimo(1L))
+        when(productoSedeStockRepository.encontrarStockBajoPorSede(1L))
                 .thenReturn(List.of());
 
         Incidencia inc = Incidencia.builder()
@@ -136,11 +135,12 @@ class DashboardServiceTest {
     @DisplayName("Resumen financiero consolidado")
     void resumenFinanciero() {
         when(sedeRepository.findAllByActivaTrueOrderByNombreAsc()).thenReturn(List.of(sede));
+        when(ordenRepository.sumarTotalPagadoPorSede(1L)).thenReturn(BigDecimal.valueOf(5900));
+        when(ordenRepository.sumarIvaPagadoPorSede(1L)).thenReturn(BigDecimal.valueOf(900));
+        when(ordenRepository.countBySedeIdSedeAndEstado(1L, EstadoOrden.PAGADA)).thenReturn(10L);
         when(cajaRepository.sumarEfectivoPorSede(1L)).thenReturn(BigDecimal.valueOf(5000));
         when(productoRepository.count()).thenReturn(16L);
-        when(productoRepository.buscarConStockBajo()).thenReturn(List.of());
         when(incidenciaRepository.findAllByOrderByFechaReporteDesc()).thenReturn(List.of());
-        when(categoriaRepository.count()).thenReturn(5L);
 
         ResumenFinancieroResponse resultado = dashboardService.resumenFinanciero();
 
@@ -154,8 +154,8 @@ class DashboardServiceTest {
     void resumenInventario() {
         when(sedeRepository.findAllByActivaTrueOrderByNombreAsc()).thenReturn(List.of(sede));
         when(productoRepository.count()).thenReturn(16L);
-        when(productoRepository.valorInventario()).thenReturn(BigDecimal.valueOf(223000));
-        when(productoRepository.buscarConStockBajo()).thenReturn(List.of());
+        when(productoSedeStockRepository.valorInventarioTotal()).thenReturn(BigDecimal.valueOf(223000));
+        when(productoSedeStockRepository.findAll()).thenReturn(List.of());
         when(categoriaRepository.count()).thenReturn(5L);
         when(productoSedeStockRepository.valorInventarioPorSede(1L)).thenReturn(BigDecimal.valueOf(50000));
         when(productoSedeStockRepository.contarStockBajoPorSede(1L)).thenReturn(2L);

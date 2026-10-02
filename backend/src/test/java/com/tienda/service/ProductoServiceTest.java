@@ -1,16 +1,10 @@
 package com.tienda.service;
 
-import com.tienda.exception.RecursoNoEncontradoException;
-import com.tienda.model.Categoria;
-import com.tienda.model.Producto;
-import com.tienda.model.Proveedor;
 import com.tienda.dto.ProductoRequest;
-import com.tienda.dto.ProductoResponse;
-import com.tienda.repository.CategoriaRepository;
-import com.tienda.repository.ProductoRepository;
-import com.tienda.repository.ProveedorRepository;
+import com.tienda.exception.RecursoNoEncontradoException;
+import com.tienda.model.*;
+import com.tienda.repository.*;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -26,98 +20,68 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("ProductoService — Unit Tests")
 class ProductoServiceTest {
-
     @Mock private ProductoRepository productoRepository;
     @Mock private CategoriaRepository categoriaRepository;
     @Mock private ProveedorRepository proveedorRepository;
-
-    @InjectMocks
-    private ProductoService productoService;
+    @Mock private ProductoSedeStockRepository stockRepository;
+    @Mock private SedeRepository sedeRepository;
+    @InjectMocks private ProductoService productoService;
 
     private Producto producto;
     private Categoria categoria;
-    private Proveedor proveedor;
+    private Sede sede;
 
     @BeforeEach
     void setUp() {
         categoria = Categoria.builder().idCategoria(1L).nombre("Audio").build();
-        proveedor = Proveedor.builder().idProveedor(1L).nombre("AudioMax").build();
-        producto = Producto.builder()
-                .idProducto(1L).sku("AUD-001").nombre("Audífonos OneOdio")
-                .precioBase(BigDecimal.valueOf(549)).stock(28).stockMinimo(5)
-                .categoria(categoria).proveedor(proveedor).activo(true).build();
+        sede = Sede.builder().idSede(1L).nombre("Lima Centro").activa(true).build();
+        producto = Producto.builder().idProducto(1L).sku("AUD-001")
+                .nombre("Audífonos OneOdio").precioBase(new BigDecimal("549.00"))
+                .categoria(categoria).activo(true).build();
     }
 
     @Test
-    @DisplayName("Buscar catálogo con texto")
-    void buscarCatalogoConTexto() {
-        when(productoRepository.buscarCatalogo("audifonos", null))
-                .thenReturn(List.of(producto));
+    void catalogoUsaStockAgregadoDeLasSedes() {
+        var resumen = mock(ProductoSedeStockRepository.StockResumen.class);
+        when(resumen.getProductoId()).thenReturn(1L);
+        when(resumen.getStockTotal()).thenReturn(28L);
+        when(resumen.getStockMinimo()).thenReturn(5);
+        when(productoRepository.buscarCatalogo("audio", null)).thenReturn(List.of(producto));
+        when(stockRepository.resumirStock(List.of(1L))).thenReturn(List.of(resumen));
 
-        List<ProductoResponse> resultado = productoService.buscarCatalogo("audifonos", null);
+        var resultado = productoService.buscarCatalogo("audio", null);
 
-        assertThat(resultado).hasSize(1);
-        assertThat(resultado.get(0).nombre()).isEqualTo("Audífonos OneOdio");
+        assertThat(resultado).singleElement().satisfies(p -> {
+            assertThat(p.stock()).isEqualTo(28);
+            assertThat(p.stockMinimo()).isEqualTo(5);
+        });
     }
 
     @Test
-    @DisplayName("Buscar catálogo con texto null retorna todo")
-    void buscarCatalogoSinFiltro() {
-        when(productoRepository.buscarCatalogo(null, null))
-                .thenReturn(List.of(producto));
-
-        List<ProductoResponse> resultado = productoService.buscarCatalogo(null, null);
-
-        assertThat(resultado).hasSize(1);
-    }
-
-    @Test
-    @DisplayName("Obtener producto por ID")
-    void obtenerPorId() {
-        when(productoRepository.findById(1L)).thenReturn(Optional.of(producto));
-
-        ProductoResponse respuesta = productoService.obtenerPorId(1L);
-
-        assertThat(respuesta.sku()).isEqualTo("AUD-001");
-        assertThat(respuesta.categoriaNombre()).isEqualTo("Audio");
-    }
-
-    @Test
-    @DisplayName("Obtener producto inexistente lanza excepción")
-    void obtenerInexistente() {
-        when(productoRepository.findById(99L)).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> productoService.obtenerPorId(99L))
-                .isInstanceOf(RecursoNoEncontradoException.class);
-    }
-
-    @Test
-    @DisplayName("Crear producto válido")
-    void crearProducto() {
+    void crearProductoCreaInventarioPorSede() {
         when(productoRepository.findBySkuIgnoreCase("AUD-003")).thenReturn(Optional.empty());
         when(categoriaRepository.findById(1L)).thenReturn(Optional.of(categoria));
-        when(proveedorRepository.findById(1L)).thenReturn(Optional.of(proveedor));
-        when(productoRepository.save(any(Producto.class))).thenReturn(producto);
+        when(sedeRepository.findById(1L)).thenReturn(Optional.of(sede));
+        when(productoRepository.save(any())).thenAnswer(inv -> {
+            Producto p = inv.getArgument(0);
+            p.setIdProducto(3L);
+            return p;
+        });
 
-        ProductoRequest request = new ProductoRequest(
-                "AUD-003", "Nuevo Audífonos", "Descripción", BigDecimal.valueOf(549),
-                28, 5, 1L, 12, 1L, null, true);
-        ProductoResponse respuesta = productoService.crear(request);
+        var request = new ProductoRequest("AUD-003", "Nuevo audífono", "Descripción",
+                new BigDecimal("199.00"), 1L, 20, 4, 1L, 12, null, null, true);
+        var respuesta = productoService.crear(request);
 
-        assertThat(respuesta).isNotNull();
-        verify(productoRepository).save(any(Producto.class));
+        assertThat(respuesta.stock()).isEqualTo(20);
+        verify(stockRepository).save(argThat(s -> s.getSede() == sede && s.getStock() == 20));
     }
 
     @Test
-    @DisplayName("Crear producto con SKU duplicado lanza excepción")
-    void crearSkuDuplicado() {
+    void skuDuplicadoEsRechazado() {
         when(productoRepository.findBySkuIgnoreCase("AUD-001")).thenReturn(Optional.of(producto));
-
-        ProductoRequest request = new ProductoRequest(
-                "AUD-001", "Duplicado", null, BigDecimal.valueOf(100),
-                10, 5, 1L, 12, null, null, true);
+        var request = new ProductoRequest("AUD-001", "Duplicado", null,
+                new BigDecimal("100.00"), 1L, 10, 5, 1L, 12, null, null, true);
 
         assertThatThrownBy(() -> productoService.crear(request))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -125,49 +89,23 @@ class ProductoServiceTest {
     }
 
     @Test
-    @DisplayName("Actualizar producto existente")
-    void actualizarProducto() {
+    void eliminarProductoEsBajaLogica() {
         when(productoRepository.findById(1L)).thenReturn(Optional.of(producto));
-        when(productoRepository.findBySkuIgnoreCase("AUD-001")).thenReturn(Optional.of(producto));
-        when(categoriaRepository.findById(1L)).thenReturn(Optional.of(categoria));
-        when(proveedorRepository.findById(1L)).thenReturn(Optional.of(proveedor));
-        when(productoRepository.save(any(Producto.class))).thenReturn(producto);
-
-        ProductoRequest request = new ProductoRequest(
-                "AUD-001", "Audífonos Actualizado", "Nueva desc", BigDecimal.valueOf(599),
-                30, 5, 1L, 12, 1L, null, true);
-        ProductoResponse respuesta = productoService.actualizar(1L, request);
-
-        assertThat(respuesta.nombre()).isEqualTo("Audífonos Actualizado");
-    }
-
-    @Test
-    @DisplayName("Eliminar producto existente")
-    void eliminarProducto() {
-        when(productoRepository.findById(1L)).thenReturn(Optional.of(producto));
-
         productoService.eliminar(1L);
-
-        verify(productoRepository).delete(producto);
+        assertThat(producto.getActivo()).isFalse();
+        verify(productoRepository, never()).delete(any());
     }
 
     @Test
-    @DisplayName("Productos con stock bajo")
-    void productosConStockBajo() {
-        when(productoRepository.buscarConStockBajo()).thenReturn(List.of(producto));
-
-        List<ProductoResponse> resultado = productoService.productosConStockBajo();
-
-        assertThat(resultado).hasSize(1);
+    void productoInexistenteLanzaExcepcion() {
+        when(productoRepository.findById(99L)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> productoService.obtenerPorId(99L))
+                .isInstanceOf(RecursoNoEncontradoException.class);
     }
 
     @Test
-    @DisplayName("Valorización del inventario")
-    void valorInventario() {
-        when(productoRepository.valorInventario()).thenReturn(BigDecimal.valueOf(223433));
-
-        BigDecimal valor = productoService.valorInventario();
-
-        assertThat(valor).isEqualByComparingTo(BigDecimal.valueOf(223433));
+    void valorInventarioSaleDeInventarioPorSede() {
+        when(stockRepository.valorInventarioTotal()).thenReturn(new BigDecimal("223433.00"));
+        assertThat(productoService.valorInventario()).isEqualByComparingTo("223433.00");
     }
 }

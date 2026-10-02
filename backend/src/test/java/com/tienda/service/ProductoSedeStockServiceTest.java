@@ -45,7 +45,7 @@ class ProductoSedeStockServiceTest {
         sede = Sede.builder().idSede(1L).nombre("Villa El Salvador").build();
         producto = Producto.builder()
                 .idProducto(1L).sku("AUD-001").nombre("Audífonos OneOdio")
-                .precioBase(BigDecimal.valueOf(549)).stock(28).stockMinimo(5).build();
+                .precioBase(BigDecimal.valueOf(549)).build();
         pss = ProductoSedeStock.builder()
                 .id(1L).producto(producto).sede(sede)
                 .stock(25).stockMinimo(5).build();
@@ -100,7 +100,7 @@ class ProductoSedeStockServiceTest {
         ProductoSedeStock pssBajo = ProductoSedeStock.builder()
                 .id(2L).producto(producto).sede(sede)
                 .stock(2).stockMinimo(5).build();
-        when(productoSedeStockRepository.findBySedeIdSedeAndStockLessThanEqualStockMinimo(1L))
+        when(productoSedeStockRepository.encontrarStockBajoPorSede(1L))
                 .thenReturn(List.of(pssBajo));
 
         var resultado = productoSedeStockService.productosConStockBajoPorSede(1L);

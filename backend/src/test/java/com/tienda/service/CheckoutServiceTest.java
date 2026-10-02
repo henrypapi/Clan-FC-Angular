@@ -1,6 +1,7 @@
 package com.tienda.service;
 
-import com.tienda.exception.RecursoNoEncontradoException;
+import com.tienda.dto.CheckoutRequest;
+import com.tienda.exception.StockInsuficienteException;
 import com.tienda.model.*;
 import com.tienda.repository.*;
 import org.junit.jupiter.api.BeforeEach;
@@ -12,8 +13,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
-import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -21,101 +22,73 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 @DisplayName("CheckoutService — Unit Tests")
 class CheckoutServiceTest {
-
     @Mock private OrdenRepository ordenRepository;
+    @Mock private ProductoSedeStockRepository stockRepository;
+    @Mock private SedeRepository sedeRepository;
     @Mock private ProductoRepository productoRepository;
-    @Mock private InventarioRepository inventarioRepository;
-    @Mock private DetalleOrdenRepository detalleOrdenRepository;
+    @Mock private EmpresaClienteRepository empresaRepository;
     @Mock private UsuarioRepository usuarioRepository;
-    @Mock private PaisRepository paisRepository;
-    @Mock private EmpresaClienteRepository empresaClienteRepository;
+    @Mock private TaxCalculationService taxService;
     @Mock private AlmacenService almacenService;
-    @Mock private TaxCalculationService taxCalculationService;
-
-    @InjectMocks
-    private CheckoutService checkoutService;
+    @InjectMocks private CheckoutService checkoutService;
 
     private Producto producto;
+    private ProductoSedeStock inventario;
     private Usuario usuario;
-    private Pais pais;
+    private Sede sede;
 
     @BeforeEach
     void setUp() {
-        Categoria cat = Categoria.builder().idCategoria(1L).nombre("Audio").build();
-        producto = Producto.builder()
-                .idProducto(1L).sku("AUD-001").nombre("Audífonos")
-                .precioBase(BigDecimal.valueOf(549)).stock(28).stockMinimo(5)
-                .categoria(cat).activo(true).build();
-
-        Rol rol = Rol.builder().idRol(3L).nombre("CLIENTE").build();
-        usuario = Usuario.builder().idUsuario(1L).username("cliente").rol(rol).activo(true).build();
-        pais = Pais.builder().idPais(3L).codigoIso2("PE").nombre("Perú")
-                .tasaIvaGeneral(BigDecimal.valueOf(18)).tasaIvaReducido(BigDecimal.valueOf(18)).build();
+        Pais pais = Pais.builder().idPais(1L).codigoIso2("PE").nombre("Perú").build();
+        usuario = Usuario.builder().idUsuario(1L).username("cliente")
+                .nombreCompleto("Cliente Demo").pais(pais).activo(true).build();
+        sede = Sede.builder().idSede(1L).nombre("Lima Centro").activa(true).build();
+        producto = Producto.builder().idProducto(1L).sku("AUD-001")
+                .nombre("Audífonos").precioBase(new BigDecimal("100.00"))
+                .activo(true).build();
+        inventario = ProductoSedeStock.builder().producto(producto).sede(sede)
+                .stock(10).stockMinimo(2).build();
     }
 
     @Test
-    @DisplayName("Calcular IVA de productos")
-    void calcularIva() {
-        when(taxCalculationService.resolverTasaIva(usuario, null))
-                .thenReturn(new TaxCalculationService.TasaIvaResult(
-                        BigDecimal.valueOf(18), RegimenFiscal.GENERAL, pais));
+    void procesaVentaYDescuentaStockDeLaSede() {
+        when(usuarioRepository.findByUsernameIgnoreCase("cliente")).thenReturn(Optional.of(usuario));
+        when(sedeRepository.findById(1L)).thenReturn(Optional.of(sede));
+        when(taxService.regimenDe(null)).thenReturn(RegimenFiscal.GENERAL);
+        when(taxService.resolverTasa(null, usuario.getPais())).thenReturn(new BigDecimal("18.00"));
+        when(productoRepository.findById(1L)).thenReturn(Optional.of(producto));
+        when(stockRepository.findForUpdate(1L, 1L)).thenReturn(Optional.of(inventario));
+        when(taxService.calcularIva(new BigDecimal("200.00"), new BigDecimal("18.00")))
+                .thenReturn(new BigDecimal("36.00"));
+        when(ordenRepository.existsByFolio(anyString())).thenReturn(false);
+        when(ordenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        BigDecimal iva = checkoutService.calcularIvaLinea(BigDecimal.valueOf(549), BigDecimal.valueOf(18));
+        var request = new CheckoutRequest(
+                List.of(new CheckoutRequest.ItemCheckoutRequest(1L, 2)), 1L, null, "TARJETA");
+        var respuesta = checkoutService.procesar(request, CanalVenta.WEB, "cliente");
 
-        assertThat(iva).isEqualByComparingTo(BigDecimal.valueOf(98.82));
+        assertThat(respuesta.total()).isEqualByComparingTo("236.00");
+        assertThat(respuesta.sedeId()).isEqualTo(1L);
+        assertThat(inventario.getStock()).isEqualTo(8);
+        verify(almacenService).registrarSalidaVenta(inventario, 2, respuesta.folio(), usuario);
     }
 
     @Test
-    @DisplayName("Generar folio único")
-    void generarFolio() {
+    void rechazaVentaCuandoLaSedeNoTieneStock() {
+        inventario.setStock(1);
+        when(usuarioRepository.findByUsernameIgnoreCase("cliente")).thenReturn(Optional.of(usuario));
+        when(sedeRepository.findById(1L)).thenReturn(Optional.of(sede));
+        when(taxService.regimenDe(null)).thenReturn(RegimenFiscal.GENERAL);
+        when(taxService.resolverTasa(null, usuario.getPais())).thenReturn(new BigDecimal("18.00"));
+        when(productoRepository.findById(1L)).thenReturn(Optional.of(producto));
+        when(stockRepository.findForUpdate(1L, 1L)).thenReturn(Optional.of(inventario));
         when(ordenRepository.existsByFolio(anyString())).thenReturn(false);
 
-        String folio = checkoutService.generarFolio();
+        var request = new CheckoutRequest(
+                List.of(new CheckoutRequest.ItemCheckoutRequest(1L, 2)), 1L, null, "EFECTIVO");
 
-        assertThat(folio).startsWith("ORD-");
-        assertThat(folio.length()).isGreaterThan(10);
-    }
-
-    @Test
-    @DisplayName("Validar stock suficiente")
-    void validarStockSuficiente() {
-        when(productoRepository.findById(1L)).thenReturn(Optional.of(producto));
-        when(inventarioRepository.descontarStock(1L, 5)).thenReturn(1);
-
-        boolean resultado = checkoutService.validarYDescontarStock(1L, 5);
-
-        assertThat(resultado).isTrue();
-    }
-
-    @Test
-    @DisplayName("Stock insuficiente retorna false")
-    void stockInsuficiente() {
-        when(productoRepository.findById(1L)).thenReturn(Optional.of(producto));
-        when(inventarioRepository.descontarStock(1L, 100)).thenReturn(0);
-
-        boolean resultado = checkoutService.validarYDescontarStock(1L, 100);
-
-        assertThat(resultado).isFalse();
-    }
-
-    @Test
-    @DisplayName("Listar órdenes de usuario CLIENTE solo ve las suyas")
-    void listarOrdenesCliente() {
-        Rol rol = Rol.builder().idRol(3L).nombre("CLIENTE").build();
-        Usuario cliente = Usuario.builder().idUsuario(1L).rol(rol).build();
-        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(cliente));
-
-        Orden orden = Orden.builder()
-                .idOrden(1L).folio("ORD-001").canal(CanalVenta.WEB)
-                .usuario(cliente).subtotal(BigDecimal.valueOf(549))
-                .iva(BigDecimal.valueOf(98.82)).total(BigDecimal.valueOf(647.82))
-                .estado(EstadoOrden.PAGADA).fechaCreacion(OffsetDateTime.now())
-                .detalles(List.of()).build();
-        when(ordenRepository.findAllByUsuarioIdUsuarioOrderByFechaCreacionDesc(1L))
-                .thenReturn(List.of(orden));
-
-        List<Orden> resultado = checkoutService.listarOrdenes(1L, "CLIENTE");
-
-        assertThat(resultado).hasSize(1);
+        assertThatThrownBy(() -> checkoutService.procesar(request, CanalVenta.CAJA, "cliente"))
+                .isInstanceOf(StockInsuficienteException.class)
+                .hasMessageContaining("Stock insuficiente");
     }
 }
