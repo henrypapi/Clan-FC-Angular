@@ -9,7 +9,7 @@ import { firstValueFrom } from 'rxjs';
 export class ApiService {
   private readonly http = inject(HttpClient);
   private readonly auth = inject(AuthService);
-  private readonly MOCK_KEY = 'tm_mock_db_v4';
+  private readonly MOCK_KEY = 'tm_mock_db_v8';
 
   // Configura cabeceras con el JWT emitido por POST /api/auth/login.
   private getHeaders(authRequired = true): HttpHeaders {
