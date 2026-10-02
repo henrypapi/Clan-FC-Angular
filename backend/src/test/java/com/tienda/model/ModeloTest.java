@@ -40,23 +40,23 @@ class ModeloTest {
     }
 
     @Test
-    @DisplayName("Producto stock bajo se detecta correctamente")
+    @DisplayName("Inventario por sede detecta stock bajo")
     void productoStockBajo() {
-        Producto producto = Producto.builder()
+        ProductoSedeStock inventario = ProductoSedeStock.builder()
                 .stock(3).stockMinimo(5).build();
 
-        boolean stockBajo = producto.getStock() <= producto.getStockMinimo();
+        boolean stockBajo = inventario.getStock() <= inventario.getStockMinimo();
 
         assertThat(stockBajo).isTrue();
     }
 
     @Test
-    @DisplayName("Producto sin stock bajo")
+    @DisplayName("Inventario por sede sin stock bajo")
     void productoSinStockBajo() {
-        Producto producto = Producto.builder()
+        ProductoSedeStock inventario = ProductoSedeStock.builder()
                 .stock(28).stockMinimo(5).build();
 
-        boolean stockBajo = producto.getStock() <= producto.getStockMinimo();
+        boolean stockBajo = inventario.getStock() <= inventario.getStockMinimo();
 
         assertThat(stockBajo).isFalse();
     }
