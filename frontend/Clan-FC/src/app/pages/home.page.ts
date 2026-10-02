@@ -1,13 +1,14 @@
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ProductCard } from '../shared/product-card';
 import { CategoryCard } from '../shared/category-card';
 import { ApiService } from '../../core/services/api.service';
+import { ProductDetailModal } from '../shared/product-detail-modal';
 
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [RouterLink, ProductCard, CategoryCard],
+  imports: [RouterLink, ProductCard, CategoryCard, ProductDetailModal],
   template: `
     <main class="store-main">
       <section class="hero-section">
@@ -32,10 +33,8 @@ import { ApiService } from '../../core/services/api.service';
             </div>
           </div>
           <div class="hero-visual fade-in">
-            <img
-              src="/images/tiendamenos-tech-hero.png"
-              alt="Selección premium de tecnología TiendaMenos"
-            />
+            <img src="/images/tiendamenos-tech-hero.png"
+                 alt="Selección premium de tecnología TiendaMenos" />
             <div class="hero-offer"><small>OFERTA DE LA SEMANA</small><strong>Hasta 35% dscto.</strong></div>
             <div class="hero-rating"><span>★</span><strong>4.9</strong><small>Clientes felices</small></div>
           </div>
@@ -63,7 +62,8 @@ import { ApiService } from '../../core/services/api.service';
         </div>
       </section>
 
-      <section class="store-shell section-block products-section">
+      <section class="store-shell section-block products-section"
+               (mouseenter)="pauseCarousel()" (mouseleave)="resumeCarousel()">
         <div class="section-heading">
           <div><span class="section-kicker">Elegidos para ti</span><h2>Tres formas de mejorar tu día</h2></div>
           <div class="carousel-actions" aria-label="Controles del carrusel">
@@ -77,7 +77,7 @@ import { ApiService } from '../../core/services/api.service';
           <div class="carousel-glow"></div>
           <div class="product-carousel" [attr.data-page]="carouselPage()">
           @for (prod of carouselProducts(); track prod.idProducto) {
-            <div class="carousel-slide"><app-product-card [product]="prod" /></div>
+            <div class="carousel-slide"><app-product-card [product]="prod" (viewProduct)="openProduct($event)" /></div>
           } @empty {
             <p class="empty-state">
               <span class="text-4xl block mb-2">📦</span>Todavía no hay productos para mostrar.
@@ -88,7 +88,15 @@ import { ApiService } from '../../core/services/api.service';
         </div>
 
         <div class="carousel-footer">
-          <p><strong>Selección que cambia contigo.</strong> Descubre una nueva combinación cada vez.</p>
+          <div>
+            <p><strong>Selección que cambia contigo.</strong> Tres productos por vista · avance automático.</p>
+            <div class="carousel-dots" aria-label="Páginas del carrusel">
+              @for (page of carouselPages(); track page) {
+                <button type="button" [class.active]="carouselPage() === page"
+                        (click)="goToCarouselPage(page)" [attr.aria-label]="'Ir a la página ' + (page + 1)"></button>
+              }
+            </div>
+          </div>
           <a routerLink="/catalogo" class="button button-primary">Ver todos los productos <span>→</span></a>
         </div>
       </section>
@@ -117,14 +125,19 @@ import { ApiService } from '../../core/services/api.service';
         <div class="store-shell footer-bottom">© 2026 TiendaMenos. Compra inteligente, vive mejor.</div>
       </footer>
     </main>
+    @if (selectedProduct(); as product) {
+      <app-product-detail-modal [product]="product" (closed)="closeProduct()" />
+    }
   `
 })
-export class HomePage implements OnInit {
+export class HomePage implements OnInit, OnDestroy {
   private api = inject(ApiService);
+  private carouselTimer?: number;
   
   categorias = signal<any[]>([]);
   populares = signal<any[]>([]);
   carouselPage = signal(0);
+  selectedProduct = signal<any | null>(null);
 
   carouselTotalPages = computed(() => Math.max(1, Math.ceil(this.populares().length / 3)));
   carouselProducts = computed(() => {
@@ -134,12 +147,21 @@ export class HomePage implements OnInit {
     return Array.from({ length: Math.min(3, products.length) }, (_, index) => products[(start + index) % products.length]);
   });
   carouselProgress = computed(() => ((this.carouselPage() + 1) / this.carouselTotalPages()) * 100);
+  carouselPages = computed(() => Array.from({ length: this.carouselTotalPages() }, (_, index) => index));
 
   async ngOnInit() {
     // Almacenamos los datos en Signals tras la carga inicial
     const db = await this.api.getMockDb();
     this.categorias.set(db.categorias.filter((c: any) => c.activa !== false));
-    this.populares.set(db.productos.filter((p: any) => p.activo !== false).slice(0, 12));
+    const activos = db.productos.filter((p: any) => p.activo !== false);
+    const conGaleria = activos.filter((p: any) => p.imagenUrl?.startsWith('/images/products/'));
+    const resto = activos.filter((p: any) => !p.imagenUrl?.startsWith('/images/products/'));
+    this.populares.set([...conGaleria, ...resto].slice(0, 12));
+    this.resumeCarousel();
+  }
+
+  ngOnDestroy() {
+    this.pauseCarousel();
   }
 
   nextProducts() {
@@ -149,4 +171,32 @@ export class HomePage implements OnInit {
   previousProducts() {
     this.carouselPage.update(page => (page - 1 + this.carouselTotalPages()) % this.carouselTotalPages());
   }
+
+  goToCarouselPage(page: number) {
+    this.carouselPage.set(page);
+  }
+
+  pauseCarousel() {
+    if (this.carouselTimer !== undefined && typeof window !== 'undefined') {
+      window.clearInterval(this.carouselTimer);
+      this.carouselTimer = undefined;
+    }
+  }
+
+  resumeCarousel() {
+    this.pauseCarousel();
+    if (typeof window === 'undefined' || this.carouselTotalPages() <= 1) return;
+    this.carouselTimer = window.setInterval(() => this.nextProducts(), 4200);
+  }
+
+  openProduct(product: any) {
+    this.pauseCarousel();
+    this.selectedProduct.set(product);
+  }
+
+  closeProduct() {
+    this.selectedProduct.set(null);
+    this.resumeCarousel();
+  }
+
 }
