@@ -1,6 +1,5 @@
 // src/app/shared/product-card.ts
-import { Component, input, inject, computed } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Component, input, output, inject, computed } from '@angular/core';
 import { CartService } from '../../core/services/cart.service';
 import { ToastService } from '../../core/services/toast.service';
 import { CurrencyPipe } from '@angular/common';
@@ -8,12 +7,13 @@ import { CurrencyPipe } from '@angular/common';
 @Component({
   selector: 'app-product-card',
   standalone: true,
-  imports: [RouterLink, CurrencyPipe],
+  imports: [CurrencyPipe],
   template: `
     <article class="product-card fade-in">
       
-      <!-- Clic en la imagen lleva al detalle o catálogo filtrado -->
-      <div class="product-media" [routerLink]="['/catalogo']" [queryParams]="{ q: product().nombre }">
+      <button type="button" class="product-media product-view-button"
+              (click)="viewProduct.emit(product())"
+              [attr.aria-label]="'Ver detalles de ' + product().nombre">
         <div class="product-image-wrap">
           <img [src]="product().imagenUrl" [alt]="product().nombre" loading="lazy" (error)="onImageError($event)" />
           <span class="image-fallback">{{ emoji() }}</span>
@@ -33,14 +33,15 @@ import { CurrencyPipe } from '@angular/common';
             Popular · {{ product().unidadesVendidas }} vendidos
           </span>
         }
-      </div>
+        <span class="quick-view-hint">Ver producto</span>
+      </button>
 
       <div class="product-content">
         <span class="product-category">{{ product().categoriaNombre ?? 'General' }}</span>
         
-        <h3 [routerLink]="['/catalogo']" [queryParams]="{ q: product().nombre }">
+        <h3><button type="button" class="product-title-button" (click)="viewProduct.emit(product())">
           {{ product().nombre }}
-        </h3>
+        </button></h3>
         
         <p class="product-rating" title="Valoración de clientes">
           {{ estrellas() }} <span>({{ valoracionDummy() }})</span>
@@ -69,6 +70,7 @@ import { CurrencyPipe } from '@angular/common';
 })
 export class ProductCard {
   product = input.required<any>(); // Definirías tu interface Producto luego
+  viewProduct = output<any>();
   
   private cartService = inject(CartService);
   private toastService = inject(ToastService);
