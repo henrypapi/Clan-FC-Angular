@@ -129,6 +129,15 @@
         {
           "name": "Dashboard de inventario",
           "request": { "method": "GET", "url": "{{base_url}}/dashboard/inventario" }
+        },
+        {
+          "name": "Crear producto con inventario inicial",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"sku\": \"AUDIO-DEMO-01\",\n  \"nombre\": \"Audífonos demo\",\n  \"descripcion\": \"Producto creado desde Postman\",\n  \"precioBase\": 199.90,\n  \"sedeId\": {{sede_id}},\n  \"stock\": 20,\n  \"stockMinimo\": 5,\n  \"categoriaId\": 1,\n  \"garantiaMeses\": 12,\n  \"proveedorId\": 1,\n  \"imagenUrl\": \"/images/products/earbuds-black-main.png\",\n  \"activo\": true\n}" },
+            "url": "{{base_url}}/productos"
+          }
         }
       ]
     },
@@ -142,6 +151,38 @@
         {
           "name": "Reporte semanal",
           "request": { "method": "GET", "url": "{{base_url}}/reportes/semanal" }
+        },
+        {
+          "name": "Registrar entrada de almacén",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"productoId\": {{producto_id}},\n  \"sedeId\": {{sede_id}},\n  \"cantidad\": 10,\n  \"tipo\": \"ENTRADA\",\n  \"proveedorId\": 1,\n  \"referencia\": \"FAC-POSTMAN-001\",\n  \"nota\": \"Reposición de inventario\"\n}" },
+            "url": "{{base_url}}/almacen/movimientos"
+          }
+        },
+        {
+          "name": "Cobrar venta en POS",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"items\": [{ \"productoId\": {{producto_id}}, \"cantidad\": 1 }],\n  \"sedeId\": {{sede_id}},\n  \"empresaClienteId\": null,\n  \"metodoPago\": \"EFECTIVO\"\n}" },
+            "url": "{{base_url}}/pos/cobros"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Compra web (CLIENTE o ADMIN)",
+      "item": [
+        {
+          "name": "Confirmar checkout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"items\": [{ \"productoId\": {{producto_id}}, \"cantidad\": 1 }],\n  \"sedeId\": {{sede_id}},\n  \"empresaClienteId\": null,\n  \"metodoPago\": \"TARJETA\"\n}" },
+            "url": "{{base_url}}/checkout"
+          }
         }
       ]
     }
