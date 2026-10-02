@@ -21,7 +21,7 @@ public class Sede {
     private Long idSede;
 
     @NotBlank
-    @Column(nullable = false, length = 80)
+    @Column(nullable = false, unique = true, length = 80)
     private String nombre;
 
     @Column(length = 120)
@@ -31,8 +31,10 @@ public class Sede {
     private String telefono;
 
     @Column(nullable = false)
+    @Builder.Default
     private Boolean activa = Boolean.TRUE;
 
     @Column(name = "fecha_creacion", nullable = false, updatable = false)
+    @Builder.Default
     private OffsetDateTime fechaCreacion = OffsetDateTime.now();
 }

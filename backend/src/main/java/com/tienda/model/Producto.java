@@ -4,7 +4,6 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.PositiveOrZero;
 import lombok.*;
 
 import java.math.BigDecimal;
@@ -53,21 +52,10 @@ public class Producto {
     @Column(name = "precio_base", nullable = false, precision = 12, scale = 2)
     private BigDecimal precioBase;
 
-    /** Unidades disponibles; nunca negativo (restricción CHECK en BD). */
-    @NotNull
-    @PositiveOrZero
-    @Column(nullable = false)
-    private Integer stock = 0;
-
-    /** Umbral para alertas de stock bajo (dashboard Entregable 3). */
-    @NotNull
-    @PositiveOrZero
-    @Column(name = "stock_minimo", nullable = false)
-    private Integer stockMinimo = 5;
-
     /** Garantía del fabricante en meses (0 = sin garantía). */
     @NotNull
     @Column(name = "garantia_meses", nullable = false)
+    @Builder.Default
     private Integer garantiaMeses = 12;
 
     @Column(name = "imagen_url", length = 300)
@@ -75,12 +63,15 @@ public class Producto {
 
     /** Baja lógica: los productos inactivos no aparecen en el catálogo. */
     @Column(nullable = false)
+    @Builder.Default
     private Boolean activo = Boolean.TRUE;
 
     @Column(name = "fecha_creacion", nullable = false, updatable = false)
+    @Builder.Default
     private OffsetDateTime fechaCreacion = OffsetDateTime.now();
 
     @Column(name = "fecha_actualizacion", nullable = false)
+    @Builder.Default
     private OffsetDateTime fechaActualizacion = OffsetDateTime.now();
 
     @PreUpdate

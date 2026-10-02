@@ -30,6 +30,12 @@ public class MovimientoAlmacen {
     @JoinColumn(name = "id_producto", nullable = false)
     private Producto producto;
 
+    /** Sede cuyo inventario fue modificado. */
+    @NotNull
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
+    @JoinColumn(name = "id_sede", nullable = false)
+    private Sede sede;
+
     /** Siempre positivo; el signo lo determina el tipo. */
     @NotNull
     @Column(nullable = false)
@@ -57,5 +63,6 @@ public class MovimientoAlmacen {
     private Usuario usuario;
 
     @Column(nullable = false, updatable = false)
+    @Builder.Default
     private OffsetDateTime fecha = OffsetDateTime.now();
 }

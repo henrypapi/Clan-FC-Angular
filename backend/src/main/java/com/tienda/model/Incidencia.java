@@ -30,12 +30,18 @@ public class Incidencia {
     @NotNull
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 15)
+    @Builder.Default
     private EstadoIncidencia estado = EstadoIncidencia.REPORTADA;
 
     @NotNull
     @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "id_producto", nullable = false)
     private Producto producto;
+
+    @NotNull
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
+    @JoinColumn(name = "id_sede", nullable = false)
+    private Sede sede;
 
     /** Orden de la que provino la pieza (opcional). */
     @ManyToOne(fetch = FetchType.LAZY)
@@ -44,6 +50,7 @@ public class Incidencia {
 
     @NotNull
     @Column(nullable = false)
+    @Builder.Default
     private Integer cantidad = 1;
 
     @NotBlank
@@ -55,6 +62,7 @@ public class Incidencia {
     private Usuario reportadoPor;
 
     @Column(name = "fecha_reporte", nullable = false, updatable = false)
+    @Builder.Default
     private OffsetDateTime fechaReporte = OffsetDateTime.now();
 
     /** Qué se hizo al resolverla (cambio, reembolso, reparación...). */

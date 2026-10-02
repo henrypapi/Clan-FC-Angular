@@ -33,8 +33,10 @@ public class Proveedor {
     private String email;
 
     @Column(nullable = false)
+    @Builder.Default
     private Boolean activo = Boolean.TRUE;
 
     @Column(name = "fecha_registro", nullable = false, updatable = false)
+    @Builder.Default
     private OffsetDateTime fechaRegistro = OffsetDateTime.now();
 }

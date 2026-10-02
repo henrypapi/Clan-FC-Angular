@@ -46,6 +46,7 @@ public class Pais {
     private BigDecimal tasaIvaReducido;
 
     @Column(nullable = false)
+    @Builder.Default
     private Boolean activo = Boolean.TRUE;
 
     /**

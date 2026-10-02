@@ -1,6 +1,8 @@
 package com.tienda.model;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
 import lombok.*;
 
 import java.time.OffsetDateTime;
@@ -30,14 +32,21 @@ public class ProductoSedeStock {
     private Sede sede;
 
     /** Stock actual de este producto en esta sede. */
+    @NotNull
+    @PositiveOrZero
     @Column(nullable = false)
+    @Builder.Default
     private Integer stock = 0;
 
     /** Stock mínimo para alertas en esta sede. */
+    @NotNull
+    @PositiveOrZero
     @Column(name = "stock_minimo", nullable = false)
+    @Builder.Default
     private Integer stockMinimo = 5;
 
     @Column(name = "fecha_actualizacion", nullable = false)
+    @Builder.Default
     private OffsetDateTime fechaActualizacion = OffsetDateTime.now();
 
     @PreUpdate

@@ -42,6 +42,11 @@ public class Orden {
     @JoinColumn(name = "id_usuario", nullable = false)
     private Usuario usuario;
 
+    /** Sede que prepara y descuenta el inventario de esta venta. */
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
+    @JoinColumn(name = "id_sede", nullable = false)
+    private Sede sede;
+
     /**
      * Empresa cliente B2B asociada a la compra.
      * NULL = consumidor final web (aplica tasa GENERAL del país por defecto).
@@ -80,14 +85,17 @@ public class Orden {
 
     @NotNull
     @Column(name = "metodo_pago", nullable = false, length = 20)
+    @Builder.Default
     private String metodoPago = "EFECTIVO";
 
     @NotNull
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 15)
+    @Builder.Default
     private EstadoOrden estado = EstadoOrden.PAGADA;
 
     @Column(name = "fecha_creacion", nullable = false, updatable = false)
+    @Builder.Default
     private OffsetDateTime fechaCreacion = OffsetDateTime.now();
 
     /** Líneas de la venta; se persisten en cascada con la orden. */

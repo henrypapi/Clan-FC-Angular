@@ -59,6 +59,7 @@ public class EmpresaCliente {
     @DecimalMin("0.00")
     @DecimalMax("100.00")
     @Column(name = "tasa_iva", nullable = false, precision = 5, scale = 2)
+    @Builder.Default
     private BigDecimal tasaIva = new BigDecimal("16.00");
 
     @Email
@@ -66,8 +67,10 @@ public class EmpresaCliente {
     private String contactoEmail;
 
     @Column(nullable = false)
+    @Builder.Default
     private Boolean activo = Boolean.TRUE;
 
     @Column(name = "fecha_registro", nullable = false, updatable = false)
+    @Builder.Default
     private OffsetDateTime fechaRegistro = OffsetDateTime.now();
 }

@@ -27,14 +27,17 @@ public class Caja {
 
     /** Número de caja dentro de la sede (1, 2, 3...). */
     @Column(name = "numero_caja", nullable = false)
+    @Builder.Default
     private Integer numeroCaja = 1;
 
     /** Saldo actual de efectivo en la caja. */
     @Column(nullable = false, precision = 12, scale = 2)
+    @Builder.Default
     private BigDecimal efectivo = BigDecimal.ZERO;
 
     /** Estado: ABIERTA, CERRADA, HABILITADA. */
     @Column(nullable = false, length = 15)
+    @Builder.Default
     private String estado = "CERRADA";
 
     /** Cajero asignado a esta caja (opcional, se asigna al habilitar). */
@@ -43,6 +46,7 @@ public class Caja {
     private Usuario usuario;
 
     @Column(name = "fecha_creacion", nullable = false, updatable = false)
+    @Builder.Default
     private OffsetDateTime fechaCreacion = OffsetDateTime.now();
 
     @Column(name = "fecha_apertura")

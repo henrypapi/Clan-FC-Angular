@@ -46,11 +46,7 @@ public class CajaMovimiento {
     @JoinColumn(name = "id_usuario", nullable = false)
     private Usuario usuario;
 
-    /** Sede del movimiento (denormalizado para consultas rápidas). */
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "id_sede", nullable = false)
-    private Sede sede;
-
     @Column(nullable = false, updatable = false)
+    @Builder.Default
     private OffsetDateTime fecha = OffsetDateTime.now();
 }

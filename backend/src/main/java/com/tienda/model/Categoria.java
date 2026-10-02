@@ -27,9 +27,11 @@ public class Categoria {
     private String descripcion;
 
     @Column(nullable = false)
+    @Builder.Default
     private Boolean activa = Boolean.TRUE;
 
     @Column(name = "fecha_creacion", nullable = false, updatable = false)
+    @Builder.Default
     private OffsetDateTime fechaCreacion = OffsetDateTime.now();
 
     /**
