@@ -9,6 +9,7 @@ en [`backend/README.md`](backend/README.md).
 
 - Diagrama ER en 3FN: [`backend/docs/diagrama-er.md`](backend/docs/diagrama-er.md)
 - DDL PostgreSQL: [`backend/database/schema.sql`](backend/database/schema.sql)
+- Migración segura desde la versión anterior: [`backend/database/migration_v2_normalizacion.sql`](backend/database/migration_v2_normalizacion.sql)
 - Colección Postman: [`backend/postman/TiendaMenos-API.postman_collection.json`](backend/postman/TiendaMenos-API.postman_collection.json)
 
 ## Frontend
@@ -25,6 +26,7 @@ La aplicación está orientada a la gestión de productos, catálogo, carrito de
 ## Instalación
 
 ```bash
+cd frontend/Clan-FC
 npm install
 ```
 
