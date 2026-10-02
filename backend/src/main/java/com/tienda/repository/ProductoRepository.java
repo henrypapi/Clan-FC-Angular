@@ -5,7 +5,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -51,15 +50,4 @@ public interface ProductoRepository extends JpaRepository<Producto, Long> {
     List<Producto> buscarInventario(@Param("busqueda") String busqueda,
                                     @Param("categoriaId") Long categoriaId);
 
-    /** Productos en alerta: stock igual o por debajo del mínimo (más críticos primero). */
-    @Query("""
-           SELECT p FROM Producto p
-           WHERE p.stock <= p.stockMinimo
-           ORDER BY p.stock ASC
-           """)
-    List<Producto> buscarConStockBajo();
-
-    /** Valorización del inventario al costo base (sin IVA). */
-    @Query("SELECT COALESCE(SUM(p.precioBase * p.stock), 0) FROM Producto p")
-    BigDecimal valorInventario();
 }

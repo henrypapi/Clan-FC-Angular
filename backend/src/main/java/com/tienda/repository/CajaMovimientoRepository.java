@@ -9,7 +9,7 @@ public interface CajaMovimientoRepository extends JpaRepository<CajaMovimiento, 
 
     List<CajaMovimiento> findAllByCajaIdCajaOrderByFechaDesc(Long idCaja);
 
-    List<CajaMovimiento> findAllBySedeIdSedeOrderByFechaDesc(Long idSede);
+    List<CajaMovimiento> findAllByCajaSedeIdSedeOrderByFechaDesc(Long idSede);
 
     List<CajaMovimiento> findTop50ByOrderByFechaDesc();
 

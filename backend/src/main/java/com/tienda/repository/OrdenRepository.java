@@ -2,6 +2,7 @@ package com.tienda.repository;
 
 import com.tienda.model.CanalVenta;
 import com.tienda.model.Orden;
+import com.tienda.model.EstadoOrden;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -23,4 +24,12 @@ public interface OrdenRepository extends JpaRepository<Orden, Long> {
     /** Suma de totales pagados por canal (métricas del dashboard, Entregable 3). */
     @Query("SELECT COALESCE(SUM(o.total), 0) FROM Orden o WHERE o.canal = :canal AND o.estado = 'PAGADA'")
     BigDecimal sumarTotalPorCanal(@Param("canal") CanalVenta canal);
+
+    long countBySedeIdSedeAndEstado(Long sedeId, EstadoOrden estado);
+
+    @Query("SELECT COALESCE(SUM(o.total), 0) FROM Orden o WHERE o.sede.idSede = :sedeId AND o.estado = 'PAGADA'")
+    BigDecimal sumarTotalPagadoPorSede(@Param("sedeId") Long sedeId);
+
+    @Query("SELECT COALESCE(SUM(o.iva), 0) FROM Orden o WHERE o.sede.idSede = :sedeId AND o.estado = 'PAGADA'")
+    BigDecimal sumarIvaPagadoPorSede(@Param("sedeId") Long sedeId);
 }
