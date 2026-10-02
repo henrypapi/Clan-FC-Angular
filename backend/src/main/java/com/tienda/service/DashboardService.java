@@ -1,7 +1,10 @@
 package com.tienda.service;
 
 import com.tienda.dto.*;
-import com.tienda.repository.*;import lombok.RequiredArgsConstructor;
+import com.tienda.repository.*;
+import com.tienda.model.EstadoIncidencia;
+import com.tienda.model.EstadoOrden;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,14 +40,8 @@ public class DashboardService {
         sedeRepository.findAllByActivaTrueOrderByNombreAsc().forEach(sede -> {
             Long idSede = sede.getIdSede();
 
-            // Ventas de esta sede (órdenes CAJA de usuarios asignados a la sede)
-            BigDecimal ventas = cajaRepository.sumarEfectivoPorSede(idSede);
-
-            // Contar movimientos de tipo VENTA en la sede
-            long ordenes = cajaMovimientoRepository.findAllBySedeIdSedeOrderByFechaDesc(idSede)
-                    .stream()
-                    .filter(m -> "VENTA".equals(m.getTipo()))
-                    .count();
+            BigDecimal ventas = ordenRepository.sumarTotalPagadoPorSede(idSede);
+            long ordenes = ordenRepository.countBySedeIdSedeAndEstado(idSede, EstadoOrden.PAGADA);
 
             BigDecimal ticketPromedio = ordenes > 0
                     ? ventas.divide(BigDecimal.valueOf(ordenes), 2, RoundingMode.HALF_UP)
@@ -86,7 +83,8 @@ public class DashboardService {
 
         // Incidencias pendientes
         incidenciaRepository.findAllByOrderByFechaReporteDesc().forEach(inc -> {
-            if ("REPORTADA".equals(inc.getEstado()) || "EN_REVISION".equals(inc.getEstado())) {
+            if (inc.getEstado() == EstadoIncidencia.REPORTADA ||
+                    inc.getEstado() == EstadoIncidencia.EN_REVISION) {
                 alertas.add(new AlertasStockResponse.Alerta(
                         "INFO", "INCIDENCIA",
                         "Incidencia " + inc.getTipo() + ": " + inc.getProducto().getNombre(),
@@ -119,21 +117,23 @@ public class DashboardService {
         BigDecimal efectivoTotal = BigDecimal.ZERO;
         int totalOrdenes = 0;
 
-        sedeRepository.findAllByActivaTrueOrderByNombreAsc().forEach(sede -> {
+        for (var sede : sedeRepository.findAllByActivaTrueOrderByNombreAsc()) {
             Long idSede = sede.getIdSede();
 
-            // Ventas de la sede
-            BigDecimal ventasSede = cajaRepository.sumarEfectivoPorSede(idSede);
+            BigDecimal ventasSede = ordenRepository.sumarTotalPagadoPorSede(idSede);
+            BigDecimal ivaSede = ordenRepository.sumarIvaPagadoPorSede(idSede);
             BigDecimal efectivoSede = cajaRepository.sumarEfectivoPorSede(idSede);
-
-            // IVA estimado (18% Peru)
-            BigDecimal ivaSede = ventasSede.multiply(new BigDecimal("0.18"))
-                    .setScale(2, RoundingMode.HALF_UP);
+            long ordenesSede = ordenRepository.countBySedeIdSedeAndEstado(idSede, EstadoOrden.PAGADA);
 
             porSede.add(new ResumenFinancieroResponse.SedeFinanciera(
-                    idSede, sede.getNombre(), ventasSede, ivaSede, efectivoSede, 0, 0
+                    idSede, sede.getNombre(), ventasSede, ivaSede, efectivoSede,
+                    Math.toIntExact(ordenesSede), 0
             ));
-        });
+            ingresosTotales = ingresosTotales.add(ventasSede);
+            ivaTotal = ivaTotal.add(ivaSede);
+            efectivoTotal = efectivoTotal.add(efectivoSede);
+            totalOrdenes += Math.toIntExact(ordenesSede);
+        }
 
         int totalProductos = (int) productoRepository.count();
         int totalIncidencias = incidenciaRepository.findAllByOrderByFechaReporteDesc().size();
@@ -164,8 +164,9 @@ public class DashboardService {
 
         return new InventarioResumenResponse(
                 (int) productoRepository.count(),
-                productoRepository.valorInventario(),
-                (int) productoRepository.buscarConStockBajo().size(),
+                productoSedeStockRepository.valorInventarioTotal(),
+                (int) productoSedeStockRepository.findAll().stream()
+                        .filter(s -> s.getStock() <= s.getStockMinimo()).count(),
                 (int) categoriaRepository.count(),
                 porSede
         );

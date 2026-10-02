@@ -6,15 +6,21 @@ import com.tienda.exception.RecursoNoEncontradoException;
 import com.tienda.model.Categoria;
 import com.tienda.model.Producto;
 import com.tienda.model.Proveedor;
+import com.tienda.model.ProductoSedeStock;
+import com.tienda.model.Sede;
 import com.tienda.repository.CategoriaRepository;
 import com.tienda.repository.ProductoRepository;
 import com.tienda.repository.ProveedorRepository;
+import com.tienda.repository.ProductoSedeStockRepository;
+import com.tienda.repository.SedeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 
 /**
  * Lógica de negocio del inventario (CRUD de productos, ADMIN).
@@ -27,6 +33,8 @@ public class ProductoService {
     private final ProductoRepository productoRepository;
     private final CategoriaRepository categoriaRepository;
     private final ProveedorRepository proveedorRepository;
+    private final ProductoSedeStockRepository stockRepository;
+    private final SedeRepository sedeRepository;
 
     /* ----------------------------- Catálogo ------------------------------- */
 
@@ -34,13 +42,12 @@ public class ProductoService {
     @Transactional(readOnly = true)
     public List<ProductoResponse> buscarCatalogo(String busqueda, Long categoriaId) {
         String texto = normalizar(busqueda);
-        return productoRepository.buscarCatalogo(texto, categoriaId).stream()
-                .map(ProductoResponse::from).toList();
+        return respuestas(productoRepository.buscarCatalogo(texto, categoriaId));
     }
 
     @Transactional(readOnly = true)
     public ProductoResponse obtenerPorId(Long id) {
-        return ProductoResponse.from(buscarProducto(id));
+        return respuestas(List.of(buscarProducto(id))).get(0);
     }
 
     /* ---------------------------- Inventario ------------------------------ */
@@ -49,8 +56,7 @@ public class ProductoService {
     @Transactional(readOnly = true)
     public List<ProductoResponse> buscarInventario(String busqueda, Long categoriaId) {
         String texto = normalizar(busqueda);
-        return productoRepository.buscarInventario(texto, categoriaId).stream()
-                .map(ProductoResponse::from).toList();
+        return respuestas(productoRepository.buscarInventario(texto, categoriaId));
     }
 
     @Transactional
@@ -63,8 +69,6 @@ public class ProductoService {
                 .nombre(request.nombre().trim())
                 .descripcion(request.descripcion())
                 .precioBase(request.precioBase())
-                .stock(request.stock())
-                .stockMinimo(request.stockMinimo())
                 .garantiaMeses(request.garantiaMeses() == null ? 12 : request.garantiaMeses())
                 .proveedor(buscarProveedor(request.proveedorId()))
                 .imagenUrl(request.imagenUrl())
@@ -72,7 +76,12 @@ public class ProductoService {
                 .activo(request.activo() == null || request.activo())
                 .build();
 
-        return ProductoResponse.from(productoRepository.save(producto));
+        Producto guardado = productoRepository.save(producto);
+        Sede sede = buscarSede(request.sedeId());
+        stockRepository.save(ProductoSedeStock.builder()
+                .producto(guardado).sede(sede)
+                .stock(request.stock()).stockMinimo(request.stockMinimo()).build());
+        return ProductoResponse.from(guardado, request.stock(), request.stockMinimo());
     }
 
     @Transactional
@@ -85,21 +94,28 @@ public class ProductoService {
         producto.setNombre(request.nombre().trim());
         producto.setDescripcion(request.descripcion());
         producto.setPrecioBase(request.precioBase());
-        producto.setStock(request.stock());
-        producto.setStockMinimo(request.stockMinimo());
         if (request.garantiaMeses() != null) producto.setGarantiaMeses(request.garantiaMeses());
         producto.setProveedor(buscarProveedor(request.proveedorId()));
         producto.setImagenUrl(request.imagenUrl());
         producto.setCategoria(categoria);
         if (request.activo() != null) producto.setActivo(request.activo());
 
-        return ProductoResponse.from(productoRepository.save(producto));
+        Producto guardado = productoRepository.save(producto);
+        ProductoSedeStock inventario = stockRepository
+                .findByProductoIdProductoAndSedeIdSede(id, request.sedeId())
+                .orElseGet(() -> ProductoSedeStock.builder()
+                        .producto(guardado).sede(buscarSede(request.sedeId())).build());
+        inventario.setStock(request.stock());
+        inventario.setStockMinimo(request.stockMinimo());
+        stockRepository.save(inventario);
+        return respuestas(List.of(guardado)).get(0);
     }
 
-    /** Borrado físico (uso admin). Las órdenes históricas guardan snapshot. */
+    /** Baja lógica: conserva órdenes, kardex e integridad referencial. */
     @Transactional
     public void eliminar(Long id) {
-        productoRepository.delete(buscarProducto(id));
+        Producto producto = buscarProducto(id);
+        producto.setActivo(Boolean.FALSE);
     }
 
     /* ------------------------- Consultas auxiliares ----------------------- */
@@ -107,13 +123,15 @@ public class ProductoService {
     /** Productos con stock <= mínimo (alertas dashboard Entregable 3). */
     @Transactional(readOnly = true)
     public List<ProductoResponse> productosConStockBajo() {
-        return productoRepository.buscarConStockBajo().stream()
-                .map(ProductoResponse::from).toList();
+        return stockRepository.findAll().stream()
+                .filter(s -> s.getStock() <= s.getStockMinimo())
+                .map(s -> ProductoResponse.from(s.getProducto(), s.getStock(), s.getStockMinimo()))
+                .toList();
     }
 
     @Transactional(readOnly = true)
     public BigDecimal valorInventario() {
-        return productoRepository.valorInventario();
+        return stockRepository.valorInventarioTotal();
     }
 
     /* ------------------------------ Privados ------------------------------ */
@@ -141,6 +159,25 @@ public class ProductoService {
     private Producto buscarProducto(Long id) {
         return productoRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Producto " + id + " no encontrado"));
+    }
+
+    private Sede buscarSede(Long id) {
+        return sedeRepository.findById(id)
+                .filter(Sede::getActiva)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Sede " + id + " no encontrada o inactiva"));
+    }
+
+    private List<ProductoResponse> respuestas(List<Producto> productos) {
+        if (productos.isEmpty()) return List.of();
+        Map<Long, ProductoSedeStockRepository.StockResumen> stock = new HashMap<>();
+        stockRepository.resumirStock(productos.stream().map(Producto::getIdProducto).toList())
+                .forEach(r -> stock.put(r.getProductoId(), r));
+        return productos.stream().map(p -> {
+            var r = stock.get(p.getIdProducto());
+            int total = r == null ? 0 : Math.toIntExact(r.getStockTotal());
+            int minimo = r == null ? 0 : r.getStockMinimo();
+            return ProductoResponse.from(p, total, minimo);
+        }).toList();
     }
 
     private String normalizar(String texto) {

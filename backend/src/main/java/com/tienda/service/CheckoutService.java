@@ -6,7 +6,8 @@ import com.tienda.exception.RecursoNoEncontradoException;
 import com.tienda.exception.StockInsuficienteException;
 import com.tienda.model.*;
 import com.tienda.repository.EmpresaClienteRepository;
-import com.tienda.repository.InventarioRepository;
+import com.tienda.repository.ProductoSedeStockRepository;
+import com.tienda.repository.SedeRepository;
 import com.tienda.repository.OrdenRepository;
 import com.tienda.repository.ProductoRepository;
 import com.tienda.repository.UsuarioRepository;
@@ -21,6 +22,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
+import java.util.HashSet;
 import java.security.SecureRandom;
 
 /**
@@ -40,7 +42,8 @@ import java.security.SecureRandom;
 public class CheckoutService {
 
     private final OrdenRepository ordenRepository;
-    private final InventarioRepository inventarioRepository;
+    private final ProductoSedeStockRepository stockRepository;
+    private final SedeRepository sedeRepository;
     private final ProductoRepository productoRepository;
     private final EmpresaClienteRepository empresaRepository;
     private final UsuarioRepository usuarioRepository;
@@ -63,6 +66,11 @@ public class CheckoutService {
         Usuario usuario = usuarioRepository.findByUsernameIgnoreCase(username)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado: " + username));
 
+        Sede sede = sedeRepository.findById(request.sedeId())
+                .filter(Sede::getActiva)
+                .orElseThrow(() -> new RecursoNoEncontradoException(
+                        "Sede " + request.sedeId() + " no encontrada o inactiva"));
+
         EmpresaCliente empresa = null;
         if (request.empresaClienteId() != null) {
             empresa = empresaRepository.findById(request.empresaClienteId())
@@ -79,6 +87,7 @@ public class CheckoutService {
                 .folio(generarFolio())
                 .canal(canal)
                 .usuario(usuario)
+                .sede(sede)
                 .empresaCliente(empresa)
                 .pais(empresa != null ? empresa.getPais() : usuario.getPais()) // snapshot país fiscal
                 .regimenFiscal(regimen)
@@ -92,9 +101,14 @@ public class CheckoutService {
 
         BigDecimal acumuladoBase = BigDecimal.ZERO;
         BigDecimal acumuladoIva = BigDecimal.ZERO;
+        var productosProcesados = new HashSet<Long>();
 
         // --- Por cada línea: reservar stock + crear detalle ---
         for (CheckoutRequest.ItemCheckoutRequest item : request.items()) {
+            if (!productosProcesados.add(item.productoId())) {
+                throw new IllegalArgumentException(
+                        "Cada producto debe aparecer una sola vez en el carrito");
+            }
             int cantidad = item.cantidad() == null ? 1 : item.cantidad();
 
             Producto producto = productoRepository.findById(item.productoId())
@@ -108,12 +122,16 @@ public class CheckoutService {
 
             // d) DESCUENTO DEFINITIVO ATÓMICO: falla si el stock ya no alcanza
             // (protege contra ventas simultáneas del mismo inventario).
-            int filas = inventarioRepository.descontarStock(producto.getIdProducto(), cantidad);
-            if (filas == 0) {
+            ProductoSedeStock inventario = stockRepository
+                    .findForUpdate(producto.getIdProducto(), sede.getIdSede())
+                    .orElseThrow(() -> new StockInsuficienteException(
+                            "El producto no está disponible en " + sede.getNombre()));
+            if (inventario.getStock() < cantidad) {
                 throw new StockInsuficienteException("Stock insuficiente para \""
                         + producto.getNombre() + "\" (disponible: "
-                        + producto.getStock() + ", solicitado: " + cantidad + ")");
+                        + inventario.getStock() + ", solicitado: " + cantidad + ")");
             }
+            inventario.setStock(inventario.getStock() - cantidad);
 
             BigDecimal precioUnitario = producto.getPrecioBase();
             BigDecimal subtotalLinea = precioUnitario.multiply(BigDecimal.valueOf(cantidad))
@@ -136,7 +154,7 @@ public class CheckoutService {
 
             // Kardex: la venta queda trazada en movimientos_almacen.
             almacenService.registrarSalidaVenta(
-                    producto, cantidad, orden.getFolio(), usuario);
+                    inventario, cantidad, orden.getFolio(), usuario);
         }
 
         // --- b/c) Montos finales y persistencia en cascada ---

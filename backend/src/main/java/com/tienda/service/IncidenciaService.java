@@ -7,6 +7,7 @@ import com.tienda.model.*;
 import com.tienda.repository.IncidenciaRepository;
 import com.tienda.repository.OrdenRepository;
 import com.tienda.repository.ProductoRepository;
+import com.tienda.repository.SedeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +27,7 @@ public class IncidenciaService {
     private final IncidenciaRepository incidenciaRepository;
     private final ProductoRepository productoRepository;
     private final OrdenRepository ordenRepository;
+    private final SedeRepository sedeRepository;
     private final AlmacenService almacenService;
 
     @Transactional
@@ -34,6 +36,10 @@ public class IncidenciaService {
                 .orElseThrow(() -> new RecursoNoEncontradoException("Producto " + request.productoId() + " no encontrado"));
 
         TipoIncidencia tipo = normalizarTipo(request.tipo());
+        Sede sede = sedeRepository.findById(request.sedeId())
+                .filter(Sede::getActiva)
+                .orElseThrow(() -> new RecursoNoEncontradoException(
+                        "Sede " + request.sedeId() + " no encontrada o inactiva"));
 
         Orden orden = null;
         if (request.ordenId() != null) {
@@ -45,7 +51,7 @@ public class IncidenciaService {
         if (tipo == TipoIncidencia.DEVOLUCION) {
             almacenService.registrar(producto,
                     new com.tienda.dto.MovimientoAlmacenRequest(
-                            producto.getIdProducto(), request.cantidad(), "DEVOLUCION",
+                            producto.getIdProducto(), request.sedeId(), request.cantidad(), "DEVOLUCION",
                             null, orden != null ? orden.getFolio() : null,
                             "Devolución de cliente"),
                     reporta);
@@ -55,6 +61,7 @@ public class IncidenciaService {
                 .tipo(tipo)
                 .estado(EstadoIncidencia.REPORTADA)
                 .producto(producto)
+                .sede(sede)
                 .orden(orden)
                 .cantidad(request.cantidad())
                 .descripcion(request.descripcion().trim())
@@ -88,7 +95,7 @@ public class IncidenciaService {
             try {
                 almacenService.registrar(incidencia.getProducto(),
                         new com.tienda.dto.MovimientoAlmacenRequest(
-                                incidencia.getProducto().getIdProducto(), incidencia.getCantidad(),
+                                incidencia.getProducto().getIdProducto(), incidencia.getSede().getIdSede(), incidencia.getCantidad(),
                                 "MERMA", null, "INC-" + incidencia.getIdIncidencia(),
                                 "Merma por " + incidencia.getTipo()),
                         usuario);

@@ -6,6 +6,7 @@ import com.tienda.exception.RecursoNoEncontradoException;
 import com.tienda.model.*;
 import com.tienda.repository.MovimientoAlmacenRepository;
 import com.tienda.repository.ProveedorRepository;
+import com.tienda.repository.ProductoSedeStockRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +27,7 @@ public class AlmacenService {
 
     private final MovimientoAlmacenRepository movimientosRepository;
     private final ProveedorRepository proveedorRepository;
+    private final ProductoSedeStockRepository stockRepository;
 
     /** Tipos permitidos desde la interfaz del POS. */
     private static final List<String> TIPOS_UI = List.of("ENTRADA", "DEVOLUCION", "MERMA", "AJUSTE");
@@ -40,16 +42,21 @@ public class AlmacenService {
         }
         TipoMovimiento tipo = TipoMovimiento.valueOf(tipoTexto);
 
+        ProductoSedeStock inventario = stockRepository
+                .findForUpdate(producto.getIdProducto(), request.sedeId())
+                .orElseThrow(() -> new RecursoNoEncontradoException(
+                        "El producto no tiene inventario configurado en la sede " + request.sedeId()));
+
         boolean suma = (tipo == TipoMovimiento.ENTRADA || tipo == TipoMovimiento.DEVOLUCION);
         int nuevoStock = suma
-                ? producto.getStock() + request.cantidad()
-                : producto.getStock() - request.cantidad();
+                ? inventario.getStock() + request.cantidad()
+                : inventario.getStock() - request.cantidad();
 
         if (nuevoStock < 0) {
             throw new IllegalArgumentException("Stock insuficiente para descontar "
-                    + request.cantidad() + " unidades (disponible: " + producto.getStock() + ")");
+                    + request.cantidad() + " unidades (disponible: " + inventario.getStock() + ")");
         }
-        producto.setStock(nuevoStock);
+        inventario.setStock(nuevoStock);
 
         Proveedor proveedor = request.proveedorId() != null
                 ? proveedorRepository.findById(request.proveedorId()).orElse(null)
@@ -58,6 +65,7 @@ public class AlmacenService {
         MovimientoAlmacen guardado = movimientosRepository.save(MovimientoAlmacen.builder()
                 .tipo(tipo)
                 .producto(producto)
+                .sede(inventario.getSede())
                 .cantidad(request.cantidad())
                 .stockResultante(nuevoStock)
                 .referencia(request.referencia())
@@ -81,12 +89,14 @@ public class AlmacenService {
      * si la venta hace rollback, el kardex también.
      */
     @Transactional
-    public void registrarSalidaVenta(Producto producto, int cantidad, String folioOrden, Usuario usuario) {
+    public void registrarSalidaVenta(ProductoSedeStock inventario, int cantidad,
+                                     String folioOrden, Usuario usuario) {
         movimientosRepository.save(MovimientoAlmacen.builder()
                 .tipo(TipoMovimiento.SALIDA_VENTA)
-                .producto(producto)
+                .producto(inventario.getProducto())
+                .sede(inventario.getSede())
                 .cantidad(cantidad)
-                .stockResultante(producto.getStock()) // ya viene descontado por el checkout
+                .stockResultante(inventario.getStock())
                 .referencia(folioOrden)
                 .usuario(usuario)
                 .build());

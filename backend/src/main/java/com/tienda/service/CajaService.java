@@ -110,7 +110,6 @@ public class CajaService {
                 .saldoDespues(fondosIniciales)
                 .referencia("Habilitación de caja")
                 .usuario(usuario)
-                .sede(cajaGuardada.getSede())
                 .build();
         cajaMovimientoRepository.save(movimiento);
 
@@ -141,7 +140,7 @@ public class CajaService {
 
     @Transactional(readOnly = true)
     public List<CajaMovimientoResponse> listarMovimientosPorSede(Long idSede) {
-        return cajaMovimientoRepository.findAllBySedeIdSedeOrderByFechaDesc(idSede).stream()
+        return cajaMovimientoRepository.findAllByCajaSedeIdSedeOrderByFechaDesc(idSede).stream()
                 .map(CajaMovimientoResponse::from)
                 .toList();
     }
@@ -193,7 +192,6 @@ public class CajaService {
                 .saldoDespues(nuevoSaldo)
                 .referencia(request.referencia())
                 .usuario(usuario)
-                .sede(caja.getSede())
                 .build();
 
         return CajaMovimientoResponse.from(cajaMovimientoRepository.save(movimiento));
