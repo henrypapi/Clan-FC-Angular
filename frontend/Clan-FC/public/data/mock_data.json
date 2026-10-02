@@ -17,15 +17,17 @@
       "idProducto": 1, "sku": "AUD-001", "nombre": "Diadema OneOdio Pro-10 con Cable",
       "descripcion": "Diadema cerrada para DJ y estudio, cable desmontable compartido",
       "precioBase": 549, "stock": 96, "stockMinimo": 5, "categoriaId": 1, "categoriaNombre": "Audio",
-      "imagenUrl": "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop",
+      "imagenUrl": "/images/products/oneodio-04.png",
+      "imagenes": ["/images/products/oneodio-04.png", "/images/products/oneodio-01.png", "/images/products/oneodio-02.png", "/images/products/oneodio-03.png"],
       "activo": true, "garantiaMeses": 12, "proveedorId": 1, "proveedorNombre": "AudioMax Distribucion",
       "sedeStock": { "1": 28, "2": 18, "3": 32, "4": 18 }
     },
     {
-      "idProducto": 2, "sku": "AUD-002", "nombre": "Audifonos TWS Inalambricos Pro",
-      "descripcion": "Bluetooth 5.3, cancelacion de ruido activa, estuche de carga USB-C",
+      "idProducto": 2, "sku": "AUD-002", "nombre": "Audifonos TWS L8 Pro Touch",
+      "descripcion": "Pantalla tactil multifuncional, Bluetooth 5.3, ecualizador y estuche USB-C",
       "precioBase": 799, "stock": 72, "stockMinimo": 10, "categoriaId": 1, "categoriaNombre": "Audio",
-      "imagenUrl": "https://images.unsplash.com/photo-1590658268037-6bf12f032f55?w=400&h=400&fit=crop",
+      "imagenUrl": "/images/products/tws-l8-06.png",
+      "imagenes": ["/images/products/tws-l8-06.png", "/images/products/tws-l8-01.png", "/images/products/tws-l8-02.png", "/images/products/tws-l8-03.png", "/images/products/tws-l8-04.png", "/images/products/tws-l8-05.png"],
       "activo": true, "garantiaMeses": 6, "proveedorId": 1, "proveedorNombre": "AudioMax Distribucion",
       "sedeStock": { "1": 22, "2": 12, "3": 28, "4": 10 }
     },
@@ -113,7 +115,8 @@
       "idProducto": 13, "sku": "GAM-002", "nombre": "Diadema Gaming 7.1 RGB",
       "descripcion": "Sonido envolvente virtual, microfono abatible con cancelacion",
       "precioBase": 799, "stock": 42, "stockMinimo": 4, "categoriaId": 4, "categoriaNombre": "Gaming",
-      "imagenUrl": "https://images.unsplash.com/photo-1612444530582-fc66f8ddd681?w=400&h=400&fit=crop",
+      "imagenUrl": "/images/catalog/gaming-headset.jpg",
+      "imagenes": ["/images/catalog/gaming-headset.jpg"],
       "activo": true, "garantiaMeses": 12, "proveedorId": 1, "proveedorNombre": "AudioMax Distribucion",
       "sedeStock": { "1": 15, "2": 10, "3": 12, "4": 5 }
     },
@@ -121,7 +124,8 @@
       "idProducto": 14, "sku": "ACC-001", "nombre": "Hub USB-C 7-en-1",
       "descripcion": "HDMI 4K@60, 2x USB 3.0, SD/microSD, PD 100W, Ethernet",
       "precioBase": 549, "stock": 52, "stockMinimo": 6, "categoriaId": 5, "categoriaNombre": "Accesorios",
-      "imagenUrl": "https://images.unsplash.com/photo-1625842268584-8f3296236761?w=400&h=400&fit=crop",
+      "imagenUrl": "/images/catalog/usb-c-hub.jpg",
+      "imagenes": ["/images/catalog/usb-c-hub.jpg"],
       "activo": true, "garantiaMeses": 12, "proveedorId": 2, "proveedorNombre": "TechSupply Global",
       "sedeStock": { "1": 16, "2": 12, "3": 18, "4": 6 }
     },
@@ -137,9 +141,82 @@
       "idProducto": 16, "sku": "ACC-003", "nombre": "Soporte Laptop Aluminio Ajustable",
       "descripcion": "6 niveles, ventilacion, antideslizante, hasta 17 pulgadas",
       "precioBase": 299, "stock": 56, "stockMinimo": 8, "categoriaId": 5, "categoriaNombre": "Accesorios",
-      "imagenUrl": "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=400&h=400&fit=crop",
+      "imagenUrl": "/images/catalog/laptop-stand.jpg",
+      "imagenes": ["/images/catalog/laptop-stand.jpg"],
       "activo": true, "garantiaMeses": 12, "proveedorId": 3, "proveedorNombre": "Importadora ElectroNorte",
       "sedeStock": { "1": 20, "2": 14, "3": 15, "4": 7 }
+    },
+    {
+      "idProducto": 17, "sku": "AUD-003", "nombre": "Audifonos TWS A90 Blancos",
+      "descripcion": "Proteccion IP7, controles tactiles, pantalla LED y hasta 36 horas con estuche",
+      "precioBase": 329, "stock": 64, "stockMinimo": 8, "categoriaId": 1, "categoriaNombre": "Audio",
+      "imagenUrl": "/images/products/tws-a90-04.png",
+      "imagenes": ["/images/products/tws-a90-04.png", "/images/products/tws-a90-01.png", "/images/products/tws-a90-02.png", "/images/products/tws-a90-03.png"],
+      "activo": true, "garantiaMeses": 6, "proveedorId": 1, "proveedorNombre": "AudioMax Distribucion",
+      "sedeStock": { "1": 20, "2": 16, "3": 18, "4": 10 }
+    },
+    {
+      "idProducto": 18, "sku": "AUD-004", "nombre": "Audifonos Infantiles Galaxy Purple",
+      "descripcion": "Diseno ligero con cable reforzado, control integrado y audio compartido para ninos",
+      "precioBase": 249, "stock": 48, "stockMinimo": 6, "categoriaId": 1, "categoriaNombre": "Audio",
+      "imagenUrl": "/images/products/galaxy-purple-04.png",
+      "imagenes": ["/images/products/galaxy-purple-04.png", "/images/products/galaxy-purple-01.png", "/images/products/galaxy-purple-02.png", "/images/products/galaxy-purple-03.png"],
+      "activo": true, "garantiaMeses": 6, "proveedorId": 1, "proveedorNombre": "AudioMax Distribucion",
+      "sedeStock": { "1": 15, "2": 11, "3": 13, "4": 9 }
+    },
+    {
+      "idProducto": 19, "sku": "AUD-005", "nombre": "Crusher Sensory Bass Inalambrico",
+      "descripcion": "Bajos sensoriales ajustables, bateria de 50 horas, carga rapida y controles integrados",
+      "precioBase": 1199, "stock": 32, "stockMinimo": 5, "categoriaId": 1, "categoriaNombre": "Audio",
+      "imagenUrl": "/images/products/crusher-05.png",
+      "imagenes": ["/images/products/crusher-05.png", "/images/products/crusher-01.png", "/images/products/crusher-03.png", "/images/products/crusher-04.png", "/images/products/crusher-02.png"],
+      "activo": true, "garantiaMeses": 12, "proveedorId": 1, "proveedorNombre": "AudioMax Distribucion",
+      "sedeStock": { "1": 10, "2": 8, "3": 8, "4": 6 }
+    },
+    {
+      "idProducto": 20, "sku": "AUD-006", "nombre": "Audifonos Mini Hi-Fi Touch",
+      "descripcion": "Sonido Hi-Fi, ajuste seguro, controles por pulsacion y microfono para llamadas",
+      "precioBase": 289, "stock": 54, "stockMinimo": 7, "categoriaId": 1, "categoriaNombre": "Audio",
+      "imagenUrl": "/images/products/mini-hifi-01.png",
+      "imagenes": ["/images/products/mini-hifi-01.png", "/images/products/mini-hifi-02.png"],
+      "activo": true, "garantiaMeses": 6, "proveedorId": 1, "proveedorNombre": "AudioMax Distribucion",
+      "sedeStock": { "1": 18, "2": 12, "3": 15, "4": 9 }
+    },
+    {
+      "idProducto": 21, "sku": "CAM-001", "nombre": "Webcam Full HD 1080p con Microfono",
+      "descripcion": "Video Full HD, enfoque automatico, microfono dual y montaje universal para monitor",
+      "precioBase": 359, "stock": 46, "stockMinimo": 6, "categoriaId": 2, "categoriaNombre": "Computacion",
+      "imagenUrl": "/images/catalog/webcam.jpg",
+      "imagenes": ["/images/catalog/webcam.jpg"],
+      "activo": true, "garantiaMeses": 12, "proveedorId": 2, "proveedorNombre": "TechSupply Global",
+      "sedeStock": { "1": 14, "2": 10, "3": 13, "4": 9 }
+    },
+    {
+      "idProducto": 22, "sku": "SSD-001", "nombre": "SSD Externo Portatil 1TB USB-C",
+      "descripcion": "Lectura de alta velocidad, cuerpo compacto y compatibilidad con PC, Mac y smartphones",
+      "precioBase": 699, "stock": 38, "stockMinimo": 5, "categoriaId": 2, "categoriaNombre": "Computacion",
+      "imagenUrl": "/images/catalog/external-ssd.jpg",
+      "imagenes": ["/images/catalog/external-ssd.jpg"],
+      "activo": true, "garantiaMeses": 24, "proveedorId": 3, "proveedorNombre": "Importadora ElectroNorte",
+      "sedeStock": { "1": 11, "2": 8, "3": 12, "4": 7 }
+    },
+    {
+      "idProducto": 23, "sku": "SMA-001", "nombre": "Smartwatch Active AMOLED GPS",
+      "descripcion": "Pantalla AMOLED, GPS integrado, monitoreo de salud y resistencia al agua",
+      "precioBase": 899, "stock": 52, "stockMinimo": 7, "categoriaId": 3, "categoriaNombre": "Smartphones",
+      "imagenUrl": "/images/catalog/smartwatch.jpg",
+      "imagenes": ["/images/catalog/smartwatch.jpg"],
+      "activo": true, "garantiaMeses": 12, "proveedorId": 3, "proveedorNombre": "Importadora ElectroNorte",
+      "sedeStock": { "1": 16, "2": 12, "3": 15, "4": 9 }
+    },
+    {
+      "idProducto": 24, "sku": "CAR-003", "nombre": "Cargador Inalambrico Magnetico 15W",
+      "descripcion": "Carga magnetica rapida de 15W, base antideslizante y proteccion contra temperatura",
+      "precioBase": 199, "stock": 78, "stockMinimo": 10, "categoriaId": 5, "categoriaNombre": "Accesorios",
+      "imagenUrl": "/images/catalog/wireless-charger.jpg",
+      "imagenes": ["/images/catalog/wireless-charger.jpg"],
+      "activo": true, "garantiaMeses": 6, "proveedorId": 2, "proveedorNombre": "TechSupply Global",
+      "sedeStock": { "1": 24, "2": 18, "3": 22, "4": 14 }
     }
   ],
   "paises": [
