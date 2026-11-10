@@ -1,8 +1,9 @@
 package com.tienda.service;
 
 import com.tienda.exception.RecursoNoEncontradoException;
-import com.tienda.model.*;
+import com.tienda.model.Categoria;
 import com.tienda.repository.CategoriaRepository;
+import com.tienda.repository.ProductoRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,6 +16,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -22,6 +24,7 @@ import static org.mockito.Mockito.*;
 class CategoriaServiceTest {
 
     @Mock private CategoriaRepository categoriaRepository;
+    @Mock private ProductoRepository productoRepository;
 
     @InjectMocks
     private CategoriaService categoriaService;
@@ -40,7 +43,7 @@ class CategoriaServiceTest {
         when(categoriaRepository.findAllByActivaTrueOrderByNombreAsc())
                 .thenReturn(List.of(categoria));
 
-        var resultado = categoriaService.listar();
+        var resultado = categoriaService.listarActivas();
 
         assertThat(resultado).hasSize(1);
         assertThat(resultado.get(0).nombre()).isEqualTo("Audio");
@@ -87,16 +90,30 @@ class CategoriaServiceTest {
 
         assertThatThrownBy(() -> categoriaService.crear(request))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("ya existe");
+                .hasMessageContaining("Ya existe");
     }
 
     @Test
-    @DisplayName("Eliminar categoría existente")
+    @DisplayName("Eliminar categoría existente sin productos")
     void eliminarCategoria() {
         when(categoriaRepository.findById(1L)).thenReturn(Optional.of(categoria));
+        when(productoRepository.buscarInventario(null, 1L)).thenReturn(List.of());
 
         categoriaService.eliminar(1L);
 
         verify(categoriaRepository).delete(categoria);
+    }
+
+    @Test
+    @DisplayName("No eliminar categoría con productos asociados")
+    void eliminarCategoriaConProductos() {
+        when(categoriaRepository.findById(1L)).thenReturn(Optional.of(categoria));
+        when(productoRepository.buscarInventario(null, 1L))
+                .thenReturn(List.of(new com.tienda.model.Producto()));
+
+        assertThatThrownBy(() -> categoriaService.eliminar(1L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("productos asociados");
+        verify(categoriaRepository, never()).delete(any());
     }
 }

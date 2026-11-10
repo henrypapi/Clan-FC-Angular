@@ -38,6 +38,7 @@ public class AuthController {
                 new UsernamePasswordAuthenticationToken(request.username(), request.password()));
 
         Usuario usuario = usuarioRepository.findByUsernameIgnoreCase(request.username())
+                .or(() -> usuarioRepository.findByEmailIgnoreCase(request.username()))
                 .orElseThrow();
         String token = jwtService.generateToken(usuario);
         var pais = usuario.getPais();

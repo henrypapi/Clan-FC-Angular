@@ -25,7 +25,9 @@ public class UsuarioDetailsService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        // El correo del cliente sirve como username (RF de autenticación).
         Usuario usuario = usuarioRepository.findByUsernameIgnoreCase(username)
+                .or(() -> usuarioRepository.findByEmailIgnoreCase(username))
                 .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado: " + username));
 
         if (!Boolean.TRUE.equals(usuario.getActivo())) {

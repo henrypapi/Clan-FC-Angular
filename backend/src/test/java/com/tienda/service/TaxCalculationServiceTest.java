@@ -1,38 +1,35 @@
 package com.tienda.service;
 
+import com.tienda.model.EmpresaCliente;
 import com.tienda.model.Pais;
 import com.tienda.model.RegimenFiscal;
-import com.tienda.model.EmpresaCliente;
-import com.tienda.repository.PaisRepository;
-import com.tienda.repository.EmpresaClienteRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
-import static org.mockito.Mockito.*;
 
-@ExtendWith(MockitoExtension.class)
+/**
+ * Pruebas del núcleo de IVA. La API actual recibe las entidades ya resueltas
+ * (Pais / EmpresaCliente), por lo que no se necesitan repositorios mockeados.
+ */
 @DisplayName("TaxCalculationService — Unit Tests")
 class TaxCalculationServiceTest {
 
-    @Mock private PaisRepository paisRepository;
-    @Mock private EmpresaClienteRepository empresaClienteRepository;
-
-    @InjectMocks
     private TaxCalculationService taxCalculationService;
-
     private Pais peru;
 
     @BeforeEach
     void setUp() {
+        taxCalculationService = new TaxCalculationService();
+        // Equivalente a los defaults de application.properties.
+        ReflectionTestUtils.setField(taxCalculationService, "tasaGeneral", BigDecimal.valueOf(16));
+        ReflectionTestUtils.setField(taxCalculationService, "tasaReducido", BigDecimal.valueOf(8));
+        ReflectionTestUtils.setField(taxCalculationService, "tasaExenta", BigDecimal.ZERO);
+
         peru = Pais.builder()
                 .idPais(3L).codigoIso2("PE").nombre("Perú")
                 .tasaIvaGeneral(BigDecimal.valueOf(18))
@@ -40,92 +37,82 @@ class TaxCalculationServiceTest {
                 .build();
     }
 
-    @Test
-    @DisplayName("Calcular IVA con tasa general de Perú")
-    void calcularIvaPeru() {
-        when(paisRepository.findByCodigoIso2IgnoreCase("PE")).thenReturn(Optional.of(peru));
+    private EmpresaCliente empresa(RegimenFiscal regimen, BigDecimal tasaIva, Pais pais) {
+        return EmpresaCliente.builder()
+                .idEmpresa(1L).rfc("TEST123").razonSocial("Test SA")
+                .regimenFiscal(regimen)
+                .tasaIva(tasaIva)
+                .pais(pais)
+                .build();
+    }
 
-        var resultado = taxCalculationService.calcular(BigDecimal.valueOf(1000), "PE", RegimenFiscal.GENERAL, null);
+    @Test
+    @DisplayName("Tasa general del país para consumidor final")
+    void tasaGeneralPais() {
+        assertThat(taxCalculationService.resolverTasa(null, peru))
+                .isEqualByComparingTo(BigDecimal.valueOf(18));
+    }
+
+    @Test
+    @DisplayName("Régimen EXENTO aplica 0%")
+    void tasaExento() {
+        EmpresaCliente exento = empresa(RegimenFiscal.EXENTO, null, peru);
+        assertThat(taxCalculationService.resolverTasa(exento, null))
+                .isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    @Test
+    @DisplayName("Régimen REDUCIDO usa la tasa reducida del país")
+    void tasaReducido() {
+        EmpresaCliente reducido = empresa(RegimenFiscal.REDUCIDO, null, peru);
+        assertThat(taxCalculationService.resolverTasa(reducido, null))
+                .isEqualByComparingTo(BigDecimal.valueOf(18));
+    }
+
+    @Test
+    @DisplayName("Override manual de la empresa sin país vinculado")
+    void tasaOverrideEmpresa() {
+        EmpresaCliente general = empresa(RegimenFiscal.GENERAL, BigDecimal.valueOf(12), null);
+        assertThat(taxCalculationService.resolverTasa(general, null))
+                .isEqualByComparingTo(BigDecimal.valueOf(12));
+    }
+
+    @Test
+    @DisplayName("Consumidor final sin país usa el default configurado")
+    void tasaDefaultSinPais() {
+        assertThat(taxCalculationService.resolverTasa(null, null))
+                .isEqualByComparingTo(BigDecimal.valueOf(16));
+    }
+
+    @Test
+    @DisplayName("Cálculo de IVA: base * tasa / 100")
+    void calcularIva() {
+        assertThat(taxCalculationService.calcularIva(BigDecimal.valueOf(1000), BigDecimal.valueOf(18)))
+                .isEqualByComparingTo(BigDecimal.valueOf(180));
+    }
+
+    @Test
+    @DisplayName("Desglose completo con país y bandera")
+    void calcularTotales() {
+        var resultado = taxCalculationService.calcularTotales(BigDecimal.valueOf(1000), null, peru);
 
         assertThat(resultado.tasaIva()).isEqualByComparingTo(BigDecimal.valueOf(18));
         assertThat(resultado.iva()).isEqualByComparingTo(BigDecimal.valueOf(180));
         assertThat(resultado.total()).isEqualByComparingTo(BigDecimal.valueOf(1180));
         assertThat(resultado.paisCodigo()).isEqualTo("PE");
+        assertThat(resultado.banderaEmoji()).isEqualTo("🇵🇪");
+        assertThat(resultado.regimenFiscal()).isEqualTo("GENERAL");
     }
 
     @Test
-    @DisplayName("Calcular IVA exento")
-    void calcularIvaExento() {
-        when(paisRepository.findByCodigoIso2IgnoreCase("PE")).thenReturn(Optional.of(peru));
+    @DisplayName("Desglose exento no suma IVA")
+    void calcularTotalesExento() {
+        EmpresaCliente exento = empresa(RegimenFiscal.EXENTO, null, peru);
 
-        var resultado = taxCalculationService.calcular(BigDecimal.valueOf(500), "PE", RegimenFiscal.EXENTO, null);
+        var resultado = taxCalculationService.calcularTotales(BigDecimal.valueOf(500), exento, null);
 
         assertThat(resultado.tasaIva()).isEqualByComparingTo(BigDecimal.ZERO);
         assertThat(resultado.iva()).isEqualByComparingTo(BigDecimal.ZERO);
         assertThat(resultado.total()).isEqualByComparingTo(BigDecimal.valueOf(500));
-    }
-
-    @Test
-    @DisplayName("Calcular IVA con tasa reducida")
-    void calcularIvaReducido() {
-        when(paisRepository.findByCodigoIso2IgnoreCase("PE")).thenReturn(Optional.of(peru));
-
-        var resultado = taxCalculationService.calcular(BigDecimal.valueOf(2000), "PE", RegimenFiscal.REDUCIDO, null);
-
-        assertThat(resultado.tasaIva()).isEqualByComparingTo(BigDecimal.valueOf(18));
-        assertThat(resultado.iva()).isEqualByComparingTo(BigDecimal.valueOf(360));
-        assertThat(resultado.total()).isEqualByComparingTo(BigDecimal.valueOf(2360));
-    }
-
-    @Test
-    @DisplayName("Empresa cliente con tasa override")
-    void empresaConTasaOverride() {
-        EmpresaCliente empresa = EmpresaCliente.builder()
-                .idEmpresa(1L).rfc("TEST123").razonSocial("Test SA")
-                .regimenFiscal(RegimenFiscal.GENERAL)
-                .tasaIva(BigDecimal.valueOf(12))
-                .pais(peru)
-                .build();
-        when(empresaClienteRepository.findById(1L)).thenReturn(Optional.of(empresa));
-
-        var resultado = taxCalculationService.calcular(
-                BigDecimal.valueOf(1000), "PE", RegimenFiscal.GENERAL, 1L);
-
-        assertThat(resultado.tasaIva()).isEqualByComparingTo(BigDecimal.valueOf(12));
-        assertThat(resultado.iva()).isEqualByComparingTo(BigDecimal.valueOf(120));
-    }
-
-    @Test
-    @DisplayName("Resolver tasa IVA desde usuario")
-    void resolverDesdeUsuario() {
-        com.tienda.model.Usuario usuario = com.tienda.model.Usuario.builder()
-                .idUsuario(1L).pais(peru).build();
-
-        var resultado = taxCalculationService.resolverTasaIva(usuario, null);
-
-        assertThat(resultado.tasaIva()).isEqualByComparingTo(BigDecimal.valueOf(18));
-        assertThat(resultado.pais()).isEqualTo(peru);
-    }
-
-    @Test
-    @DisplayName("Resolver tasa IVA sin país usa default")
-    void resolverSinPais() {
-        com.tienda.model.Usuario usuario = com.tienda.model.Usuario.builder()
-                .idUsuario(1L).pais(null).build();
-
-        var resultado = taxCalculationService.resolverTasaIva(usuario, null);
-
-        // Default de application.properties: 16%
-        assertThat(resultado.tasaIva()).isEqualByComparingTo(BigDecimal.valueOf(16));
-    }
-
-    @Test
-    @DisplayName("Bandera emoji desde país")
-    void banderaEmoji() {
-        when(paisRepository.findByCodigoIso2IgnoreCase("PE")).thenReturn(Optional.of(peru));
-
-        var resultado = taxCalculationService.calcular(BigDecimal.valueOf(100), "PE", RegimenFiscal.GENERAL, null);
-
-        assertThat(resultado.banderaEmoji()).isEqualTo("🇵🇪");
     }
 }

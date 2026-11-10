@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -35,9 +36,14 @@ public class ProductoController {
     public List<ProductoResponse> listar(
             @RequestParam(required = false) String busqueda,
             @RequestParam(required = false) Long categoriaId,
-            @RequestParam(defaultValue = "false") boolean incluirInactivos) {
+            @RequestParam(defaultValue = "false") boolean incluirInactivos,
+            Authentication authentication) {
 
-        return incluirInactivos
+        // Solo un ADMIN puede ver productos inactivos (inventario completo).
+        boolean esAdmin = authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+
+        return (incluirInactivos && esAdmin)
                 ? productoService.buscarInventario(busqueda, categoriaId)
                 : productoService.buscarCatalogo(busqueda, categoriaId);
     }

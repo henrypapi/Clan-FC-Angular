@@ -101,4 +101,24 @@ public class AlmacenService {
                 .usuario(usuario)
                 .build());
     }
+
+    /**
+     * DEVOLUCION por anulación de una venta: repone el stock y deja rastro en
+     * el kardex. Se ejecuta dentro de la misma transacción que el borrado de
+     * la orden (CheckoutService.eliminar).
+     */
+    @Transactional
+    public void registrarDevolucionVenta(ProductoSedeStock inventario, int cantidad,
+                                         String folioOrden, Usuario usuario) {
+        movimientosRepository.save(MovimientoAlmacen.builder()
+                .tipo(TipoMovimiento.DEVOLUCION)
+                .producto(inventario.getProducto())
+                .sede(inventario.getSede())
+                .cantidad(cantidad)
+                .stockResultante(inventario.getStock())
+                .referencia(folioOrden)
+                .nota("Anulación de venta: stock revertido")
+                .usuario(usuario)
+                .build());
+    }
 }

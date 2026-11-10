@@ -18,6 +18,7 @@ const roleGuard = (allowedRoles: string[]): CanActivateFn => {
 export const routes: Routes = [
   { path: '', loadComponent: () => import('./pages/home.page').then(m => m.HomePage) },
   { path: 'login', loadComponent: () => import('./pages/login.page').then(m => m.LoginPage) },
+  { path: 'registro', loadComponent: () => import('./pages/registro.page').then(m => m.RegistroPage) },
   { path: 'catalogo', loadComponent: () => import('./pages/catalog.page').then(m => m.CatalogPage) },
   { path: 'carrito', loadComponent: () => import('./pages/cart.page').then(m => m.CartPage) },
   { 

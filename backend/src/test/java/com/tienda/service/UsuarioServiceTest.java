@@ -12,6 +12,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.List;
@@ -85,28 +86,30 @@ class UsuarioServiceTest {
                 "admin", "admin@test.pe", "pass123", "Admin Test", 3L);
 
         assertThatThrownBy(() -> usuarioService.crear(request, "ADMIN"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("ya existe");
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("en uso");
     }
 
     @Test
     @DisplayName("Crear usuario con email duplicado lanza excepción")
     void crearEmailDuplicado() {
-        when(usuarioRepository.existsByUsernameIgnoreCase("nuevo")).thenReturn(false);
+        // Para CLIENTE el username es el correo, por eso la primera comprobación
+        // también usa el correo.
+        when(usuarioRepository.existsByUsernameIgnoreCase("admin@tienda.pe")).thenReturn(false);
         when(usuarioRepository.existsByEmailIgnoreCase("admin@tienda.pe")).thenReturn(true);
 
         var request = new com.tienda.dto.RegistroUsuarioRequest(
                 "nuevo", "admin@tienda.pe", "pass123", "Nuevo", 3L);
 
         assertThatThrownBy(() -> usuarioService.crear(request, "CLIENTE"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("email");
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("correo");
     }
 
     @Test
     @DisplayName("Crear usuario válido")
     void crearUsuarioValido() {
-        when(usuarioRepository.existsByUsernameIgnoreCase("nuevo")).thenReturn(false);
+        when(usuarioRepository.existsByUsernameIgnoreCase("nuevo@test.pe")).thenReturn(false);
         when(usuarioRepository.existsByEmailIgnoreCase("nuevo@test.pe")).thenReturn(false);
         when(rolRepository.findByNombreIgnoreCase("CLIENTE")).thenReturn(Optional.of(rol));
         when(paisRepository.findById(3L)).thenReturn(Optional.of(pais));

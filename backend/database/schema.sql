@@ -53,13 +53,15 @@ create table if not exists usuarios (
     id_usuario bigint generated always as identity primary key,
     id_rol bigint not null references roles(id_rol) on update restrict on delete restrict,
     id_pais bigint references paises(id_pais) on update restrict on delete set null,
-    username varchar(50) not null unique,
+    username varchar(100) not null unique,
     email varchar(100) not null unique,
     password_hash varchar(100) not null,
     nombre_completo varchar(120) not null,
     activo boolean not null default true,
     fecha_creacion timestamptz not null default now(),
-    constraint usuarios_username_check check (username ~ '^[A-Za-z0-9._-]{3,50}$')
+    -- El correo es la credencial del cliente; los usuarios internos conservan
+    -- un nombre corto. Solo se exige una longitud mínima.
+    constraint usuarios_username_check check (char_length(username) >= 3)
 );
 
 create table if not exists productos (
@@ -237,5 +239,13 @@ create index if not exists caja_movimientos_id_usuario_idx on caja_movimientos (
 -- Unicidad sin depender de mayúsculas/minúsculas en credenciales.
 create unique index if not exists usuarios_username_lower_uk on usuarios (lower(username));
 create unique index if not exists usuarios_email_lower_uk on usuarios (lower(email));
+
+-- ---------------------------------------------------------------------------
+-- Migración idempotente para bases creadas con versiones anteriores:
+-- el correo del cliente se usa como username y puede superar 50 caracteres.
+-- ---------------------------------------------------------------------------
+alter table usuarios alter column username type varchar(100);
+alter table usuarios drop constraint if exists usuarios_username_check;
+alter table usuarios add constraint usuarios_username_check check (char_length(username) >= 3);
 
 commit;

@@ -1,9 +1,9 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, inject, OnInit, signal, computed, effect } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CurrencyPipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
-import { ApiService } from '../../core/services/api.service';
+import { ApiService, Orden } from '../../core/services/api.service';
 import { ToastService } from '../../core/services/toast.service';
 
 @Component({
@@ -70,6 +70,16 @@ import { ToastService } from '../../core/services/toast.service';
                 </header>
 
                 <div class="p-4 space-y-3 border-b border-dashed border-slate-300">
+                  <label class="block">
+                    <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Cliente</span>
+                    <select [(ngModel)]="selectedClienteId" class="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm bg-white outline-none">
+                      <option [ngValue]="null">— Consumidor final (sin registrar) —</option>
+                      @for (cli of clientes(); track cli.idUsuario) {
+                        <option [ngValue]="cli.idUsuario">{{ cli.nombreCompleto }} · {{ cli.correo }}</option>
+                      }
+                    </select>
+                  </label>
+
                   <label class="block">
                     <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Cliente / País fiscal</span>
                     <select [(ngModel)]="selectedEmpresaId" class="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm bg-white outline-none">
@@ -159,13 +169,44 @@ import { ToastService } from '../../core/services/toast.service';
         </div>
       }
 
-      <!-- MODAL: COBRO EXITOSO -->
+      <!-- MODAL: COBRO EXITOSO (ticket de la OrdenResponse) -->
       @if (showExitoModal()) {
         <div class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
           <div class="bg-white text-slate-800 rounded-3xl shadow-2xl max-w-md w-full p-8 text-center fade-in">
             <p class="text-6xl mb-3">💰</p>
             <h3 class="text-2xl font-extrabold">Cobro realizado</h3>
-            <p class="text-sm text-slate-500 mt-1 mb-6">La venta quedó registrada en caja.</p>
+            <p class="text-sm text-slate-500 mt-1 mb-4">La venta quedó registrada en caja.</p>
+
+            @if (lastOrden(); as orden) {
+              <div class="bg-slate-50 rounded-2xl p-4 mb-5 text-left text-sm">
+                <div class="flex justify-between mb-1">
+                  <span class="text-slate-500">Folio</span>
+                  <span class="font-mono font-bold">{{ orden.folio }}</span>
+                </div>
+                <div class="flex justify-between mb-3">
+                  <span class="text-slate-500">{{ orden.banderaEmoji }} {{ orden.empresaNombre }}</span>
+                  <span class="text-slate-400 text-xs">{{ orden.metodoPago }}</span>
+                </div>
+                <ul class="divide-y divide-slate-200 border-y border-slate-200 py-1">
+                  @for (item of orden.items; track item.idDetalle) {
+                    <li class="flex justify-between py-1.5">
+                      <span class="truncate pr-2">{{ item.cantidad }}× {{ item.nombreProducto }}</span>
+                      <span class="font-semibold whitespace-nowrap">{{ item.subtotalLinea | currency:'PEN':'S/ ' }}</span>
+                    </li>
+                  }
+                </ul>
+                <div class="flex justify-between text-xs mt-2 text-slate-500">
+                  <span>Subtotal</span><span>{{ orden.subtotal | currency:'PEN':'S/ ' }}</span>
+                </div>
+                <div class="flex justify-between text-xs text-slate-500">
+                  <span>IVA ({{ orden.tasaIva }}%)</span><span>{{ orden.iva | currency:'PEN':'S/ ' }}</span>
+                </div>
+                <div class="flex justify-between text-lg font-extrabold text-emerald-600 mt-1">
+                  <span>TOTAL</span><span>{{ orden.total | currency:'PEN':'S/ ' }}</span>
+                </div>
+              </div>
+            }
+
             <button (click)="showExitoModal.set(false)" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl transition">
               Nueva venta →
             </button>
@@ -192,13 +233,18 @@ export class PosPage implements OnInit {
   // Estado Venta
   catalogo = signal<any[]>([]);
   empresas = signal<any[]>([]);
+  clientes = signal<any[]>([]);
   searchQuery = signal('');
   selectedEmpresaId = signal<number | null>(null);
+  selectedClienteId = signal<number | null>(null);
   metodoPago = signal('EFECTIVO');
   ticket = signal<any[]>([]);
-  
+
   isProcessing = signal(false);
   showExitoModal = signal(false);
+  lastOrden = signal<Orden | null>(null);
+
+  private previewHandle: ReturnType<typeof setTimeout> | null = null;
 
   // Computed Catalog (Filtra solo con stock)
   filteredCatalog = computed(() => {
@@ -212,23 +258,62 @@ export class PosPage implements OnInit {
 
   // Computed Ticket
   subtotalBase = computed(() => this.ticket().reduce((acc, t) => acc + (t.precioBase * t.cantidad), 0));
-  
-  currentTaxes = computed(() => {
-    const subtotal = this.subtotalBase();
-    const empId = this.selectedEmpresaId();
-    const empresa = this.empresas().find(e => e.idEmpresa === empId);
-    const tasa = empresa ? Number(empresa.tasaIva || 18) : 18;
-    const iva = (subtotal * tasa) / 100;
-    return { tasa, iva, total: subtotal + iva };
-  });
+
+  // IVA calculado EN VIVO por el backend (POST /api/impuestos/preview)
+  currentTaxes = signal<{ tasa: number; iva: number; total: number }>({ tasa: 0, iva: 0, total: 0 });
+
+  constructor() {
+    effect(() => {
+      const subtotal = this.subtotalBase();
+      const empId = this.selectedEmpresaId();
+      const logged = !!this.auth.currentUser();
+
+      if (!logged) {
+        this.currentTaxes.set({ tasa: 18, iva: (subtotal * 18) / 100, total: subtotal * 1.18 });
+        return;
+      }
+      this.schedulePreview(subtotal, empId);
+    });
+  }
+
+  private schedulePreview(subtotal: number, empId: number | null) {
+    if (this.previewHandle) clearTimeout(this.previewHandle);
+    this.previewHandle = setTimeout(() => this.refreshTaxes(subtotal, empId), 250);
+  }
+
+  private async refreshTaxes(subtotal: number, empId: number | null) {
+    if (subtotal <= 0) {
+      this.currentTaxes.set({ tasa: 0, iva: 0, total: 0 });
+      return;
+    }
+    try {
+      const totales = await this.api.previewImpuestos(subtotal, empId);
+      this.currentTaxes.set({
+        tasa: Number(totales.tasaIva),
+        iva: Number(totales.iva),
+        total: Number(totales.total)
+      });
+    } catch {
+      // Mantenemos el último cálculo conocido
+    }
+  }
 
   async ngOnInit() {
     this.verificarHabilitacion();
-    
-    // Cargar Catálogo Mock
-    const db = await this.api.getMockDb();
-    this.catalogo.set(db.productos || []);
-    this.empresas.set(db.empresas || []);
+
+    // Carga REAL de productos, empresas y clientes desde la API
+    try {
+      const [productos, empresas, clientes] = await Promise.all([
+        this.api.getProductos(),
+        this.api.getEmpresas(),
+        this.api.getClientesPos()
+      ]);
+      this.catalogo.set(productos);
+      this.empresas.set(empresas);
+      this.clientes.set(clientes);
+    } catch {
+      this.toast.show('No se pudo cargar el catálogo del punto de venta', 'error');
+    }
   }
 
   // --- LÓGICA DE CAJA ---
@@ -255,10 +340,12 @@ export class PosPage implements OnInit {
     }
     const cajero = this.auth.currentUser()?.username;
     const key = `tm_caja_habilitada_${cajero}`;
-    
-    localStorage.setItem(key, 'true');
-    localStorage.setItem(`${key}_fondo`, String(this.fondoInicial()));
-    
+
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(key, 'true');
+      localStorage.setItem(`${key}_fondo`, String(this.fondoInicial()));
+    }
+
     this.cajaHabilitada.set(true);
     this.efectivoCaja.set(this.fondoInicial());
     this.showHabilitarModal.set(false);
@@ -283,7 +370,9 @@ export class PosPage implements OnInit {
       existing.cantidad++;
       this.ticket.set([...current]);
     } else {
-      this.ticket.set([...current, { ...prod, cantidad: 1 }]);
+      // productoId es el identificador que usa la plantilla del ticket;
+      // idProducto se conserva para enviar el carrito al backend.
+      this.ticket.set([...current, { ...prod, productoId: prod.idProducto, cantidad: 1 }]);
     }
   }
 
@@ -308,23 +397,33 @@ export class PosPage implements OnInit {
     }
 
     this.isProcessing.set(true);
-    
+
     try {
-      // Simular delay de API
-      await new Promise(r => setTimeout(r, 800));
-      
-      // Si el pago es en efectivo, sumarlo a la caja local
+      // Cobro REAL: el backend recalcula precios/IVA y descuenta stock
+      const orden = await this.api.posCobro({
+        items: this.ticket().map(t => ({ productoId: t.idProducto, cantidad: t.cantidad })),
+        sedeId: this.api.getSedeActual(),
+        empresaClienteId: this.selectedEmpresaId(),
+        clienteId: this.selectedClienteId(),
+        metodoPago: this.metodoPago()
+      });
+
+      // Si el pago es en efectivo, lo reflejamos en el fondo local de la caja
       if (this.metodoPago() === 'EFECTIVO') {
-        this.efectivoCaja.update(c => c + this.currentTaxes().total);
-        const cajero = this.auth.currentUser()?.username;
-        localStorage.setItem(`tm_caja_habilitada_${cajero}_fondo`, String(this.efectivoCaja()));
+        this.efectivoCaja.update(c => c + Number(orden.total));
+        if (typeof localStorage !== 'undefined') {
+          const cajero = this.auth.currentUser()?.username;
+          localStorage.setItem(`tm_caja_habilitada_${cajero}_fondo`, String(this.efectivoCaja()));
+        }
       }
 
-      this.toast.show('✔ Cobro registrado en caja', 'exito');
+      this.lastOrden.set(orden);
+      this.toast.show(`✔ Cobro ${orden.folio} registrado en caja`, 'exito');
       this.ticket.set([]); // Limpiar ticket
       this.showExitoModal.set(true);
-    } catch (err) {
-      this.toast.show('Error al procesar cobro', 'error');
+    } catch (err: any) {
+      const message = err?.error?.error || err?.error?.message || 'Error al procesar cobro';
+      this.toast.show(message, 'error');
     } finally {
       this.isProcessing.set(false);
     }

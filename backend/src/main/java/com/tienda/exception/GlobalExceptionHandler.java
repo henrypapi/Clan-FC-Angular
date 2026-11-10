@@ -37,8 +37,24 @@ public class GlobalExceptionHandler {
     /** 409 — restricciones UNIQUE/FK reportadas por PostgreSQL. */
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<Map<String, Object>> manejarIntegridad(DataIntegrityViolationException ex) {
-        return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(cuerpo(HttpStatus.CONFLICT, ex.getMessage()));
+        String mensaje = "No se puede completar la operación: el dato está duplicado o "
+                + "referenciado por otros registros (restricción de clave foránea).";
+        // Si el mensaje original identifica el recurso, se muestra de forma amigable.
+        String original = ex.getMostSpecificCause() != null
+                ? ex.getMostSpecificCause().getMessage() : ex.getMessage();
+        if (original != null) {
+            if (original.contains("usuarios_email_key")) {
+                mensaje = "El correo ya está registrado";
+            } else if (original.contains("usuarios_username_key")) {
+                mensaje = "El nombre de usuario ya está en uso";
+            } else if (original.contains("productos_sku_key")) {
+                mensaje = "El SKU ya existe";
+            } else if (original.contains("violates foreign key constraint")) {
+                mensaje = "No se puede eliminar: el registro tiene datos asociados "
+                        + "(restricción de clave foránea).";
+            }
+        }
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(cuerpo(HttpStatus.CONFLICT, mensaje));
     }
 
     /** 401 — usuario o contraseña incorrectos en el login. */

@@ -29,7 +29,7 @@ public class Usuario {
     private Rol rol;
 
     @NotBlank
-    @Column(nullable = false, unique = true, length = 50)
+    @Column(nullable = false, unique = true, length = 100)
     private String username;
 
     @Email

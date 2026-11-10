@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, inject, OnInit, signal, effect } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink, Router } from '@angular/router';
 import { CurrencyPipe } from '@angular/common';
@@ -20,6 +20,14 @@ import { ToastService } from '../../core/services/toast.service';
           <p class="text-6xl mb-4">✅</p>
           <h2 class="text-2xl font-extrabold text-slate-800">¡Pedido confirmado!</h2>
           <p class="text-sm text-slate-500 mt-2 mb-6">Tu compra fue registrada en el inventario.</p>
+          @if (orderFolio()) {
+            <div class="bg-slate-50 rounded-2xl p-4 mb-6 text-sm">
+              <p class="text-slate-500">Folio</p>
+              <p class="font-mono font-bold text-slate-800 mb-2">{{ orderFolio() }}</p>
+              <p class="text-slate-500">Total</p>
+              <p class="font-extrabold text-emerald-600 text-lg">{{ orderTotal() | currency:'PEN':'S/ ' }}</p>
+            </div>
+          }
           <button routerLink="/catalogo" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-xl transition">
             Seguir comprando
           </button>
@@ -118,28 +126,63 @@ export class CartPage implements OnInit {
   empresas = signal<any[]>([]);
   selectedEmpresaId = signal<number | null>(null);
   metodoPago = signal('TARJETA');
-  
+
   isProcessing = signal(false);
   orderSuccess = signal(false);
+  orderFolio = signal<string | null>(null);
+  orderTotal = signal<number>(0);
 
-  // ¡LA MAGIA DE LOS SIGNALS!
-  // Esto se recalcula solo cada vez que agregas productos (cambia subtotalBase) 
-  // o cambias de empresa (cambia selectedEmpresaId). 
-  // Cero manipulación manual, cero `effect()`.
-  currentTaxes = computed(() => {
-    const subtotal = this.cart.subtotalBase();
-    const empId = this.selectedEmpresaId();
-    const empresa = this.empresas().find(e => e.idEmpresa === empId);
-    
-    const tasa = empresa ? Number(empresa.tasaIva || 18) : 18;
-    const iva = (subtotal * tasa) / 100;
-    
-    return { tasa, iva, total: subtotal + iva };
-  });
+  // IVA calculado EN VIVO por el backend (POST /api/impuestos/preview)
+  currentTaxes = signal<{ tasa: number; iva: number; total: number }>({ tasa: 0, iva: 0, total: 0 });
+
+  private previewHandle: ReturnType<typeof setTimeout> | null = null;
+
+  constructor() {
+    // Recalcula impuestos cuando cambia el subtotal, la empresa o la sesión
+    effect(() => {
+      const subtotal = this.cart.subtotalBase();
+      const empId = this.selectedEmpresaId();
+      const logged = !!this.auth.currentUser();
+
+      if (!logged) {
+        // Sin sesión no podemos llamar a /impuestos/preview: estimación local
+        this.currentTaxes.set({ tasa: 18, iva: (subtotal * 18) / 100, total: subtotal * 1.18 });
+        return;
+      }
+      this.schedulePreview(subtotal, empId);
+    });
+  }
+
+  private schedulePreview(subtotal: number, empId: number | null) {
+    if (this.previewHandle) clearTimeout(this.previewHandle);
+    this.previewHandle = setTimeout(() => this.refreshTaxes(subtotal, empId), 250);
+  }
+
+  private async refreshTaxes(subtotal: number, empId: number | null) {
+    if (subtotal <= 0) {
+      this.currentTaxes.set({ tasa: 0, iva: 0, total: 0 });
+      return;
+    }
+    try {
+      const totales = await this.api.previewImpuestos(subtotal, empId);
+      this.currentTaxes.set({
+        tasa: Number(totales.tasaIva),
+        iva: Number(totales.iva),
+        total: Number(totales.total)
+      });
+    } catch {
+      // Fallback silencioso: mantenemos el último cálculo conocido
+    }
+  }
 
   async ngOnInit() {
-    const db = await this.api.getMockDb();
-    this.empresas.set(db.empresas || []);
+    // GET /api/empresas requiere sesión; si no hay, dejamos solo consumidor final
+    if (!this.auth.currentUser()) return;
+    try {
+      this.empresas.set(await this.api.getEmpresas());
+    } catch {
+      // 401 u otros errores de red: la vista sigue funcionando como consumidor final
+    }
   }
 
   async confirmOrder() {
@@ -150,16 +193,25 @@ export class CartPage implements OnInit {
     }
 
     this.isProcessing.set(true);
-    
+
     try {
-      // Aquí iría el llamado a tu endpoint real (api.crearCheckout)
-      await new Promise(r => setTimeout(r, 800)); // Delay simulado
-      
-      this.toast.show('✔ Pedido registrado exitosamente', 'exito');
+      // El backend SIEMPRE recalcula precios/IVA: solo enviamos referencias y cantidades
+      const orden = await this.api.checkout({
+        items: this.cart.items().map(i => ({ productoId: i.productoId, cantidad: i.cantidad })),
+        sedeId: this.api.getSedeActual(),
+        empresaClienteId: this.selectedEmpresaId(),
+        clienteId: null,
+        metodoPago: this.metodoPago()
+      });
+
+      this.orderFolio.set(orden.folio);
+      this.orderTotal.set(Number(orden.total));
+      this.toast.show(`✔ Pedido ${orden.folio} registrado exitosamente`, 'exito');
       this.cart.clear(); // Vaciamos carrito
       this.orderSuccess.set(true); // Cambiamos la vista a Éxito
     } catch (err: any) {
-      this.toast.show('Error al procesar el pedido', 'error');
+      const message = err?.error?.error || err?.error?.message || 'Error al procesar el pedido';
+      this.toast.show(message, 'error');
     } finally {
       this.isProcessing.set(false);
     }

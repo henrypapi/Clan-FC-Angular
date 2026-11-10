@@ -1,13 +1,17 @@
 package com.tienda.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
+import com.tienda.config.SecurityConfig;
 import com.tienda.dto.ProductoRequest;
 import com.tienda.dto.ProductoResponse;
+import com.tienda.security.JwtService;
+import com.tienda.security.UsuarioDetailsService;
 import com.tienda.service.ProductoService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -18,11 +22,14 @@ import java.util.List;
 
 import static org.hamcrest.Matchers.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(ProductoController.class)
+@Import(SecurityConfig.class)
 @DisplayName("ProductoController — Integration Tests")
 class ProductoControllerTest {
 
@@ -34,6 +41,13 @@ class ProductoControllerTest {
 
     @MockitoBean
     private ProductoService productoService;
+
+    // Dependencias de SecurityConfig/JwtAuthenticationFilter para el slice MVC.
+    @MockitoBean
+    private JwtService jwtService;
+
+    @MockitoBean
+    private UsuarioDetailsService usuarioDetailsService;
 
     @Test
     @DisplayName("GET /api/productos retorna catálogo público")
@@ -124,5 +138,59 @@ class ProductoControllerTest {
 
         mockMvc.perform(get("/api/productos"))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("incluirInactivos=true solo ADMIN usa el inventario completo")
+    @WithMockUser(roles = "ADMIN")
+    void incluirInactivosComoAdmin() throws Exception {
+        when(productoService.buscarInventario(null, null)).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/productos").param("incluirInactivos", "true"))
+                .andExpect(status().isOk());
+
+        verify(productoService).buscarInventario(null, null);
+        verify(productoService, never()).buscarCatalogo(any(), any());
+    }
+
+    @Test
+    @DisplayName("incluirInactivos=true sin sesión sigue mostrando el catálogo público")
+    void incluirInactivosAnonimoIgnorado() throws Exception {
+        when(productoService.buscarCatalogo(null, null)).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/productos").param("incluirInactivos", "true"))
+                .andExpect(status().isOk());
+
+        verify(productoService).buscarCatalogo(null, null);
+        verify(productoService, never()).buscarInventario(any(), any());
+    }
+
+    @Test
+    @DisplayName("POST /api/productos valida las reglas RF2.1.1")
+    @WithMockUser(roles = "ADMIN")
+    void crearProductoInvalido() throws Exception {
+        ProductoRequest invalido = new ProductoRequest(
+                "A", "", null, BigDecimal.ZERO, null, -1, -1, null, 61, null, null, true);
+
+        mockMvc.perform(post("/api/productos")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(invalido)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.campos.sku").exists())
+                .andExpect(jsonPath("$.campos.nombre").exists())
+                .andExpect(jsonPath("$.campos.precioBase").exists())
+                .andExpect(jsonPath("$.campos.sedeId").exists())
+                .andExpect(jsonPath("$.campos.stock").exists())
+                .andExpect(jsonPath("$.campos.stockMinimo").exists())
+                .andExpect(jsonPath("$.campos.categoriaId").exists())
+                .andExpect(jsonPath("$.campos.garantiaMeses").exists());
+    }
+
+    @Test
+    @DisplayName("DELETE /api/productos/{id} con rol CLIENTE devuelve 403")
+    @WithMockUser(roles = "CLIENTE")
+    void eliminarProductoComoCliente() throws Exception {
+        mockMvc.perform(delete("/api/productos/1"))
+                .andExpect(status().isForbidden());
     }
 }

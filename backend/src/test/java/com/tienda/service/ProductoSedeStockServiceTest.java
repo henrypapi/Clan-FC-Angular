@@ -2,6 +2,7 @@ package com.tienda.service;
 
 import com.tienda.exception.RecursoNoEncontradoException;
 import com.tienda.exception.StockInsuficienteException;
+import com.tienda.model.Categoria;
 import com.tienda.model.Producto;
 import com.tienda.model.ProductoSedeStock;
 import com.tienda.model.Sede;
@@ -45,7 +46,9 @@ class ProductoSedeStockServiceTest {
         sede = Sede.builder().idSede(1L).nombre("Villa El Salvador").build();
         producto = Producto.builder()
                 .idProducto(1L).sku("AUD-001").nombre("Audífonos OneOdio")
-                .precioBase(BigDecimal.valueOf(549)).build();
+                .precioBase(BigDecimal.valueOf(549))
+                .categoria(Categoria.builder().idCategoria(1L).nombre("Audio").build())
+                .build();
         pss = ProductoSedeStock.builder()
                 .id(1L).producto(producto).sede(sede)
                 .stock(25).stockMinimo(5).build();

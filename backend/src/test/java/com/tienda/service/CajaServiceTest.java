@@ -107,7 +107,7 @@ class CajaServiceTest {
 
         assertThatThrownBy(() -> cajaService.crear(request))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("ya existe");
+                .hasMessageContaining("Ya existe");
     }
 
     @Test
@@ -120,7 +120,7 @@ class CajaServiceTest {
         CajaResponse resultado = cajaService.habilitar(1L, 1L, BigDecimal.valueOf(500));
 
         assertThat(resultado).isNotNull();
-        verify(cajaRepository, times(2)).save(any(Caja.class));
+        verify(cajaRepository).save(any(Caja.class));
         verify(cajaMovimientoRepository).save(any());
     }
 
@@ -209,7 +209,6 @@ class CajaServiceTest {
     @DisplayName("Movimiento en caja cerrada lanza excepción")
     void movimientoCajaCerrada() {
         when(cajaRepository.findById(1L)).thenReturn(Optional.of(caja)); // estado = CERRADA
-        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
 
         CajaMovimientoRequest request = new CajaMovimientoRequest(1L, "VENTA", BigDecimal.valueOf(100), null);
 

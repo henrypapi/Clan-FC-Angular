@@ -3,8 +3,8 @@ import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
-import { ToastService } from '../../core/services/toast.service';
 import { ApiService } from '../../core/services/api.service';
+import { ToastService } from '../../core/services/toast.service';
 
 @Component({
   selector: 'app-login',
@@ -53,9 +53,9 @@ import { ApiService } from '../../core/services/api.service';
 export class LoginPage {
   private fb = inject(FormBuilder);
   private auth = inject(AuthService);
+  private api = inject(ApiService);
   private toast = inject(ToastService);
   private router = inject(Router);
-  private api = inject(ApiService);
 
   isLoading = signal(false);
 
@@ -66,41 +66,37 @@ export class LoginPage {
 
   async onSubmit() {
     if (this.loginForm.invalid) return;
-    
+
     this.isLoading.set(true);
     const { username, password } = this.loginForm.value;
 
     try {
-      const user = await this.api.login(username!, password!);
+      // Login REAL contra POST /api/auth/login (JWT)
+      const data = await this.api.login(username!, password!);
 
-      if (!user) {
-        this.toast.show('Usuario o contraseña incorrectos', 'error');
-        return;
-      }
+      this.auth.saveSession({
+        username: data.username,
+        rol: data.rol,
+        nombreCompleto: data.nombreCompleto ?? undefined,
+        paisCodigo: data.paisCodigo ?? undefined,
+        paisNombre: data.paisNombre ?? undefined,
+        banderaEmoji: data.banderaEmoji ?? undefined,
+        token: data.token,
+        tokenType: data.tokenType,
+        expiresInMs: data.expiresInMs
+      });
 
-      const session = {
-        username: user.username,
-        rol: user.rol,
-        nombreCompleto: user.nombreCompleto,
-        paisCodigo: user.paisCodigo,
-        paisNombre: user.paisNombre,
-        banderaEmoji: user.banderaEmoji || '🇵🇪',
-        sedeId: user.sedeId,
-        sedeNombre: user.sedeNombre,
-        cajaNumero: user.cajaNumero,
-        token: user.token,
-        tokenType: user.tokenType,
-        expiresInMs: user.expiresInMs
-      };
-      
-      this.auth.saveSession(session);
-      this.toast.show(`✔ Bienvenido ${session.username}`, 'exito');
-      
-      // Redirección según rol (reemplaza tu diccionario DESTINO_POR_ROL)
-      const destination = session.rol === 'ADMIN' ? '/admin' : (session.rol === 'CAJERO' ? '/pos' : '/');
+      this.toast.show(`✔ Bienvenido ${data.username}`, 'exito');
+
+      // Redirección según rol
+      const destination = data.rol === 'ADMIN' ? '/admin' : (data.rol === 'CAJERO' ? '/pos' : '/');
       this.router.navigate([destination]);
-    } catch (error) {
-      this.toast.show('Error de autenticación', 'error');
+    } catch (error: any) {
+      const status = error?.status ?? error?.statusCode;
+      const message = status === 401
+        ? 'Usuario o contraseña incorrectos'
+        : 'No se pudo conectar con el servidor';
+      this.toast.show(message, 'error');
     } finally {
       this.isLoading.set(false);
     }

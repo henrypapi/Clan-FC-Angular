@@ -1,13 +1,17 @@
 package com.tienda.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
+import com.tienda.config.SecurityConfig;
 import com.tienda.dto.SedeRequest;
 import com.tienda.dto.SedeResponse;
+import com.tienda.security.JwtService;
+import com.tienda.security.UsuarioDetailsService;
 import com.tienda.service.SedeService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -22,6 +26,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(SedeController.class)
+@Import(SecurityConfig.class)
 @DisplayName("SedeController — Integration Tests")
 class SedeControllerTest {
 
@@ -33,6 +38,13 @@ class SedeControllerTest {
 
     @MockitoBean
     private SedeService sedeService;
+
+    // Dependencias de SecurityConfig/JwtAuthenticationFilter para el slice MVC.
+    @MockitoBean
+    private JwtService jwtService;
+
+    @MockitoBean
+    private UsuarioDetailsService usuarioDetailsService;
 
     @Test
     @DisplayName("GET /api/sedes retorna lista de sedes")

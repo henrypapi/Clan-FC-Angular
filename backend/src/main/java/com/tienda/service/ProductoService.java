@@ -111,7 +111,15 @@ public class ProductoService {
         return respuestas(List.of(guardado)).get(0);
     }
 
-    /** Baja lógica: conserva órdenes, kardex e integridad referencial. */
+    /**
+     * RF2.4 — Restricción de clave foránea.
+     *
+     * Un producto puede estar referenciado por detalle_ordenes (ventas),
+     * movimientos_almacen (kardex) e incidencias. Borrarlo físicamente
+     * rompería el histórico y PostgreSQL lo rechazaría (ON DELETE RESTRICT).
+     * Por eso se aplica una BAJA LÓGICA: el producto desaparece del catálogo
+     * (activo = false) pero conserva sus referencias y trazabilidad.
+     */
     @Transactional
     public void eliminar(Long id) {
         Producto producto = buscarProducto(id);

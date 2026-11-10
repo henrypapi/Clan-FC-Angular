@@ -112,7 +112,7 @@ class SedeServiceTest {
 
         assertThatThrownBy(() -> sedeService.crear(request))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("ya existe");
+                .hasMessageContaining("Ya existe");
     }
 
     @Test

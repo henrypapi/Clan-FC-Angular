@@ -25,6 +25,13 @@ public record CheckoutRequest(
          */
         Long empresaClienteId,
 
+        /**
+         * Cliente (Usuario) que compra en mostrador. Si viene informado, la
+         * venta queda asociada a ese cliente; si es NULL se usa el usuario
+         * autenticado que ejecuta el cobro.
+         */
+        Long clienteId,
+
         @NotBlank
         String metodoPago
 ) {

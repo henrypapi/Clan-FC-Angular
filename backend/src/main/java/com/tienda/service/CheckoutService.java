@@ -63,8 +63,19 @@ public class CheckoutService {
     @Transactional
     public OrdenResponse procesar(CheckoutRequest request, CanalVenta canal, String username) {
         // --- Datos base de la venta ---
-        Usuario usuario = usuarioRepository.findByUsernameIgnoreCase(username)
+        // El login acepta usuario o correo; el correo es el username del cliente.
+        Usuario autenticado = usuarioRepository.findByUsernameIgnoreCase(username)
+                .or(() -> usuarioRepository.findByEmailIgnoreCase(username))
                 .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado: " + username));
+
+        // Cliente seleccionado en el POS (si viene). Si no, compra el autenticado.
+        Usuario comprador = autenticado;
+        if (request.clienteId() != null) {
+            comprador = usuarioRepository.findById(request.clienteId())
+                    .filter(u -> Boolean.TRUE.equals(u.getActivo()))
+                    .orElseThrow(() -> new RecursoNoEncontradoException(
+                            "Cliente " + request.clienteId() + " no encontrado o inactivo"));
+        }
 
         Sede sede = sedeRepository.findById(request.sedeId())
                 .filter(Sede::getActiva)
@@ -79,17 +90,17 @@ public class CheckoutService {
         }
 
         RegimenFiscal regimen = taxService.regimenDe(empresa);
-        // Sin empresa: el país del USUARIO define su IVA de consumidor final.
-        BigDecimal tasa = taxService.resolverTasa(empresa, usuario.getPais());
+        // Sin empresa: el país del COMPRADOR define su IVA de consumidor final.
+        BigDecimal tasa = taxService.resolverTasa(empresa, comprador.getPais());
 
         // --- Orden cabecera (aún sin montos; se llenan al recorrer líneas) ---
         Orden orden = Orden.builder()
                 .folio(generarFolio())
                 .canal(canal)
-                .usuario(usuario)
+                .usuario(comprador)
                 .sede(sede)
                 .empresaCliente(empresa)
-                .pais(empresa != null ? empresa.getPais() : usuario.getPais()) // snapshot país fiscal
+                .pais(empresa != null ? empresa.getPais() : comprador.getPais()) // snapshot país fiscal
                 .regimenFiscal(regimen)
                 .tasaIva(tasa)
                 .subtotal(BigDecimal.ZERO)
@@ -153,8 +164,9 @@ public class CheckoutService {
             acumuladoIva = acumuladoIva.add(ivaLinea);
 
             // Kardex: la venta queda trazada en movimientos_almacen.
+            // Se registra quién ejecutó el cobro (autenticado), no el comprador.
             almacenService.registrarSalidaVenta(
-                    inventario, cantidad, orden.getFolio(), usuario);
+                    inventario, cantidad, orden.getFolio(), autenticado);
         }
 
         // --- b/c) Montos finales y persistencia en cascada ---
@@ -179,6 +191,7 @@ public class CheckoutService {
             ordenes = ordenRepository.findAllByCanalOrderByFechaCreacionDesc(CanalVenta.CAJA); // CAJERO: sus cobros de caja
         } else {
             Usuario usuario = usuarioRepository.findByUsernameIgnoreCase(username)
+                    .or(() -> usuarioRepository.findByEmailIgnoreCase(username))
                     .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado"));
             ordenes = ordenRepository.findAllByUsuarioIdUsuarioOrderByFechaCreacionDesc(usuario.getIdUsuario()); // CLIENTE: las suyas
         }
@@ -190,6 +203,61 @@ public class CheckoutService {
         return ordenRepository.findById(id)
                 .map(OrdenResponse::from)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Orden " + id + " no encontrada"));
+    }
+
+    /**
+     * Detalle con control de propiedad: ADMIN/CAJERO ven cualquier orden; un
+     * CLIENTE solo puede consultar las suyas. Se devuelve 404 (no 403) para no
+     * revelar la existencia de órdenes ajenas.
+     */
+    @Transactional(readOnly = true)
+    public OrdenResponse obtenerPorId(Long id, String username, boolean privilegiado) {
+        Orden orden = ordenRepository.findById(id)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Orden " + id + " no encontrada"));
+
+        if (!privilegiado && !esPropietario(orden, username)) {
+            throw new RecursoNoEncontradoException("Orden " + id + " no encontrada");
+        }
+        return OrdenResponse.from(orden);
+    }
+
+    private boolean esPropietario(Orden orden, String username) {
+        Usuario dueno = orden.getUsuario();
+        return dueno != null && (dueno.getUsername().equalsIgnoreCase(username)
+                || (dueno.getEmail() != null && dueno.getEmail().equalsIgnoreCase(username)));
+    }
+
+    /**
+     * Anula (elimina) una venta y REVIERTE el stock de cada línea.
+     *
+     * Toda la operación es transaccional: si falla la reversión de cualquier
+     * producto, no se borra la orden y el stock queda intacto. Además se
+     * registra un movimiento DEVOLUCION en el kardex (trazabilidad).
+     */
+    @Transactional
+    public void eliminar(Long id, String username) {
+        Orden orden = ordenRepository.findById(id)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Orden " + id + " no encontrada"));
+
+        Usuario ejecutor = usuarioRepository.findByUsernameIgnoreCase(username)
+                .or(() -> usuarioRepository.findByEmailIgnoreCase(username))
+                .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado: " + username));
+
+        for (DetalleOrden detalle : orden.getDetalles()) {
+            ProductoSedeStock inventario = stockRepository
+                    .findForUpdate(detalle.getProducto().getIdProducto(), orden.getSede().getIdSede())
+                    .orElseThrow(() -> new RecursoNoEncontradoException(
+                            "No existe inventario del producto " + detalle.getSku()
+                                    + " en la sede de la venta; no se puede revertir el stock"));
+
+            inventario.setStock(inventario.getStock() + detalle.getCantidad());
+            almacenService.registrarDevolucionVenta(
+                    inventario, detalle.getCantidad(), orden.getFolio(), ejecutor);
+        }
+
+        int lineas = orden.getDetalles().size();
+        ordenRepository.delete(orden);
+        log.info("Orden {} anulada: stock revertido en {} línea(s)", orden.getFolio(), lineas);
     }
 
     /* ------------------------------ Privados ------------------------------ */

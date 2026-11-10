@@ -65,6 +65,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/productos/**", "/api/categorias/**").hasRole("ADMIN")
                         // --- Alta/listado de usuarios (cajeros y admins): solo ADMIN ---
                         .requestMatchers("/api/usuarios/**").hasRole("ADMIN")
+                        // --- CRUD de clientes (RF1): solo ADMIN ---
+                        .requestMatchers("/api/clientes/**").hasRole("ADMIN")
                         // --- Sedes: lectura autenticada, escritura solo ADMIN ---
                         .requestMatchers(HttpMethod.GET, "/api/sedes/**").authenticated()
                         .requestMatchers("/api/sedes/**").hasRole("ADMIN")
@@ -78,9 +80,14 @@ public class SecurityConfig {
                         .requestMatchers("/api/pos/**", "/api/almacen/**", "/api/incidencias/**", "/api/reportes/**")
                             .hasAnyRole("CAJERO", "ADMIN")
                         // --- Empresas/régimen fiscal y calculadora de impuestos ---
-                        .requestMatchers(HttpMethod.GET, "/api/paises").authenticated()
+                        // Los países son públicos: el formulario de registro los necesita
+                        // antes de tener sesión.
+                        .requestMatchers(HttpMethod.GET, "/api/paises").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/empresas").hasRole("ADMIN") // registro B2B
                         .requestMatchers("/api/empresas/**", "/api/impuestos/**").authenticated()
+                        // --- Órdenes/ventas: consulta autenticada; anulación solo ADMIN ---
+                        .requestMatchers(HttpMethod.DELETE, "/api/ordenes/**").hasRole("ADMIN")
+                        .requestMatchers("/api/ordenes/**").authenticated()
                         // --- Endpoints de entregables siguientes ---
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         // --- Órdenes y todo lo demás requieren sesión ---
@@ -116,11 +123,10 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of(
-                "http://127.0.0.1:5500", "http://localhost:5500",
-                "http://127.0.0.1:5501", "http://localhost:5501",
-                "http://127.0.0.1:4200", "http://localhost:4200"));
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        // Patrones: cualquier puerto local (Angular 4200, Live Server, etc.)
+        config.setAllowedOriginPatterns(List.of(
+                "http://localhost:*", "http://127.0.0.1:*"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/api/**", config);

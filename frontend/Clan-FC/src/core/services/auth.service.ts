@@ -13,6 +13,7 @@ export interface UserSession {
   sedeId?: number;
   sedeNombre?: string;
   cajaNumero?: number;
+  /** JWT emitido por POST /api/auth/login. */
   token?: string;
   tokenType?: string;
   expiresInMs?: number;
@@ -39,12 +40,16 @@ export class AuthService {
   }
 
   saveSession(session: UserSession) {
-    sessionStorage.setItem(this.SESSION_KEY, JSON.stringify(session));
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.setItem(this.SESSION_KEY, JSON.stringify(session));
+    }
     this.currentUser.set(session);
   }
 
   logout() {
-    sessionStorage.removeItem(this.SESSION_KEY);
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem(this.SESSION_KEY);
+    }
     this.currentUser.set(null);
     this.toast.show('Sesión cerrada. ¡Vuelve pronto!', 'info');
     this.router.navigate(['/login']);

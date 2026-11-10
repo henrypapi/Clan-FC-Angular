@@ -21,6 +21,9 @@ public interface OrdenRepository extends JpaRepository<Orden, Long> {
 
     boolean existsByFolio(String folio);
 
+    /** RF1.4: una venta referencia al cliente; impide borrarlo físicamente. */
+    long countByUsuarioIdUsuario(Long idUsuario);
+
     /** Suma de totales pagados por canal (métricas del dashboard, Entregable 3). */
     @Query("SELECT COALESCE(SUM(o.total), 0) FROM Orden o WHERE o.canal = :canal AND o.estado = 'PAGADA'")
     BigDecimal sumarTotalPorCanal(@Param("canal") CanalVenta canal);
