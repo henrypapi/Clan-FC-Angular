@@ -125,7 +125,7 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
         // Patrones: cualquier puerto local (Angular 4200, Live Server, etc.)
         config.setAllowedOriginPatterns(List.of(
-                "http://localhost:*", "http://127.0.0.1:*"));
+                "http://localhost:*", "http://127.0.0.1:*", "https://clan-fc-angular-bk2s.vercel.app"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
