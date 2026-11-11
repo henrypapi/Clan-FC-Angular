@@ -1,0 +1,19 @@
+# Etapa 1: Compilación
+FROM eclipse-temurin:17-jdk-jammy AS build
+WORKDIR /app
+# Copiamos los archivos de Maven
+COPY .mvn/ .mvn/
+COPY mvnw pom.xml ./
+# Damos permisos de ejecución al wrapper (importante para evitar errores de permisos)
+RUN chmod +x ./mvnw
+# Descargamos dependencias
+RUN ./mvnw dependency:go-offline
+# Copiamos el código fuente y compilamos
+COPY src ./src
+RUN ./mvnw clean package -DskipTests
+
+# Etapa 2: Ejecución (imagen más ligera)
+FROM eclipse-temurin:17-jre-jammy
+WORKDIR /app
+COPY --from=build /app/target/*.jar app.jar
+ENTRYPOINT ["java", "-jar", "app.jar"]
