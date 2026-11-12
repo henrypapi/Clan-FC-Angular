@@ -2,7 +2,7 @@ import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CurrencyPipe, DatePipe } from '@angular/common';
 import { AuthService } from '../../core/services/auth.service';
-import { ApiService, Producto, Categoria, Proveedor, Sede, Usuario, Pais, Cliente, ClienteRequest, Orden } from '../../core/services/api.service';
+import { ApiService, Producto, Categoria, Proveedor, Sede, Usuario, Pais, Cliente, ClienteRequest, Orden, ProveedorRequest, SedeRequest, UsuarioUpdateRequest } from '../../core/services/api.service';
 import { ToastService } from '../../core/services/toast.service';
 
 @Component({
@@ -243,11 +243,13 @@ import { ToastService } from '../../core/services/toast.service';
             @case ('usuarios') {
               <section class="grid xl:grid-cols-[360px_1fr] gap-8 items-start fade-in">
                 <aside class="card-exec p-6 sticky top-24">
-                  <h2 class="text-lg font-bold text-slate-800 mb-4">➕ Nuevo usuario</h2>
+                  <h2 class="text-lg font-bold text-slate-800 mb-4">{{ editingUsuario() ? '✎ Editar' : '➕ Nuevo' }} usuario</h2>
                   <form [formGroup]="usuarioForm" (ngSubmit)="saveUsuario()" class="space-y-3 text-sm">
                     <input formControlName="username" placeholder="Usuario" class="input-exec" />
                     <input formControlName="email" type="email" placeholder="Email" class="input-exec" />
-                    <input formControlName="password" type="password" placeholder="Contraseña (mín. 6)" class="input-exec" />
+                    <input formControlName="password" type="password"
+                           [placeholder]="editingUsuario() ? 'Nueva contraseña (opcional)' : 'Contraseña (mín. 6)'"
+                           class="input-exec" />
                     <input formControlName="nombreCompleto" placeholder="Nombre completo" class="input-exec" />
                     <select formControlName="idPais" class="input-exec bg-white">
                       <option value="">— País fiscal —</option>
@@ -260,7 +262,17 @@ import { ToastService } from '../../core/services/toast.service';
                       <option value="CAJERO">CAJERO</option>
                       <option value="ADMIN">ADMIN</option>
                     </select>
-                    <button type="submit" [disabled]="usuarioForm.invalid || saving()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg disabled:bg-slate-300 transition">Crear usuario</button>
+                    <label class="flex items-center gap-2 text-xs text-slate-600">
+                      <input type="checkbox" formControlName="activo" class="accent-indigo-600" /> Cuenta activa
+                    </label>
+                    <div class="flex gap-2 pt-2">
+                      <button type="submit" [disabled]="usuarioForm.invalid || saving()" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg disabled:bg-slate-300 transition">
+                        {{ saving() ? 'Guardando…' : (editingUsuario() ? 'Actualizar' : 'Crear usuario') }}
+                      </button>
+                      @if (editingUsuario()) {
+                        <button type="button" (click)="cancelEditUsuario()" class="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold py-2 rounded-lg transition">Cancelar</button>
+                      }
+                    </div>
                   </form>
                 </aside>
 
@@ -273,7 +285,8 @@ import { ToastService } from '../../core/services/toast.service';
                         <th class="px-4 py-3">Email</th>
                         <th class="px-4 py-3 text-center">Rol</th>
                         <th class="px-4 py-3 text-center">País</th>
-                        <th class="px-5 py-3 text-center">Activo</th>
+                        <th class="px-4 py-3 text-center">Activo</th>
+                        <th class="px-5 py-3 text-center">Acciones</th>
                       </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
@@ -286,10 +299,14 @@ import { ToastService } from '../../core/services/toast.service';
                           <td class="px-4 py-3 text-slate-500">{{ u.email }}</td>
                           <td class="px-4 py-3 text-center"><span class="badge badge-ok">{{ u.rol }}</span></td>
                           <td class="px-4 py-3 text-center">{{ u.banderaEmoji }} {{ u.paisNombre || '—' }}</td>
-                          <td class="px-5 py-3 text-center">{{ u.activo ? '✅' : '⛔' }}</td>
+                          <td class="px-4 py-3 text-center">{{ u.activo ? '✅' : '⛔' }}</td>
+                          <td class="px-5 py-3 text-center whitespace-nowrap">
+                            <button (click)="editUsuario(u)" class="bg-indigo-50 text-indigo-700 text-xs font-semibold px-3 py-1.5 rounded-lg mr-2 hover:bg-indigo-100 transition">Editar</button>
+                            <button (click)="desactivarUsuario(u)" class="bg-red-50 text-red-600 text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-red-100 transition" [title]="u.activo ? 'Desactivar' : 'Ya desactivado'">⛔</button>
+                          </td>
                         </tr>
                       } @empty {
-                        <tr><td colspan="5" class="px-4 py-8 text-center text-slate-400">Sin usuarios.</td></tr>
+                        <tr><td colspan="6" class="px-4 py-8 text-center text-slate-400">Sin usuarios.</td></tr>
                       }
                     </tbody>
                   </table>
@@ -475,7 +492,28 @@ import { ToastService } from '../../core/services/toast.service';
             }
 
             @case ('proveedores') {
-              <section class="fade-in">
+              <section class="grid xl:grid-cols-[360px_1fr] gap-8 items-start fade-in">
+                <aside class="card-exec p-6 sticky top-24">
+                  <h2 class="text-lg font-bold text-slate-800 mb-4">{{ editingProveedor() ? '✎ Editar' : '➕ Nuevo' }} proveedor</h2>
+                  <form [formGroup]="proveedorForm" (ngSubmit)="saveProveedor()" class="space-y-3 text-sm">
+                    <input formControlName="nombre" placeholder="Nombre de la empresa *" class="input-exec" />
+                    <input formControlName="contactoNombre" placeholder="Persona de contacto" class="input-exec" />
+                    <input formControlName="telefono" placeholder="Teléfono" class="input-exec" />
+                    <input formControlName="email" type="email" placeholder="Email" class="input-exec" />
+                    <label class="flex items-center gap-2 text-xs text-slate-600">
+                      <input type="checkbox" formControlName="activo" class="accent-indigo-600" /> Proveedor activo
+                    </label>
+                    <div class="flex gap-2 pt-2">
+                      <button type="submit" [disabled]="proveedorForm.invalid || saving()" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg disabled:bg-slate-300 transition">
+                        {{ saving() ? 'Guardando…' : (editingProveedor() ? 'Actualizar' : 'Crear proveedor') }}
+                      </button>
+                      @if (editingProveedor()) {
+                        <button type="button" (click)="cancelEditProveedor()" class="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold py-2 rounded-lg transition">Cancelar</button>
+                      }
+                    </div>
+                  </form>
+                </aside>
+
                 <div class="card-exec overflow-hidden">
                   <header class="px-6 py-4 border-b border-slate-100"><h2 class="text-lg font-bold text-slate-800">🚚 Proveedores</h2></header>
                   <table class="w-full text-sm text-left">
@@ -485,18 +523,25 @@ import { ToastService } from '../../core/services/toast.service';
                         <th class="px-4 py-3">Contacto</th>
                         <th class="px-4 py-3">Teléfono</th>
                         <th class="px-4 py-3">Email</th>
+                        <th class="px-4 py-3 text-center">Estado</th>
+                        <th class="px-5 py-3 text-center">Acciones</th>
                       </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
                       @for (pv of proveedores(); track pv.idProveedor) {
                         <tr class="hover:bg-indigo-50/40 transition">
                           <td class="px-5 py-3 font-semibold text-slate-800">{{ pv.nombre }}</td>
-                          <td class="px-4 py-3 text-slate-500">{{ pv.contactoNombre }}</td>
-                          <td class="px-4 py-3 text-slate-500">{{ pv.telefono }}</td>
-                          <td class="px-4 py-3 text-slate-500">{{ pv.email }}</td>
+                          <td class="px-4 py-3 text-slate-500">{{ pv.contactoNombre || '—' }}</td>
+                          <td class="px-4 py-3 text-slate-500">{{ pv.telefono || '—' }}</td>
+                          <td class="px-4 py-3 text-slate-500">{{ pv.email || '—' }}</td>
+                          <td class="px-4 py-3 text-center">{{ pv.activo !== false ? '✅' : '⛔' }}</td>
+                          <td class="px-5 py-3 text-center whitespace-nowrap">
+                            <button (click)="editProveedor(pv)" class="bg-indigo-50 text-indigo-700 text-xs font-semibold px-3 py-1.5 rounded-lg mr-2 hover:bg-indigo-100 transition">Editar</button>
+                            <button (click)="deleteProveedor(pv)" class="bg-red-50 text-red-600 text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-red-100 transition">🗑</button>
+                          </td>
                         </tr>
                       } @empty {
-                        <tr><td colspan="4" class="px-4 py-8 text-center text-slate-400">Sin proveedores.</td></tr>
+                        <tr><td colspan="6" class="px-4 py-8 text-center text-slate-400">Sin proveedores.</td></tr>
                       }
                     </tbody>
                   </table>
@@ -505,7 +550,27 @@ import { ToastService } from '../../core/services/toast.service';
             }
 
             @case ('sedes') {
-              <section class="fade-in">
+              <section class="grid xl:grid-cols-[360px_1fr] gap-8 items-start fade-in">
+                <aside class="card-exec p-6 sticky top-24">
+                  <h2 class="text-lg font-bold text-slate-800 mb-4">{{ editingSede() ? '✎ Editar' : '➕ Nueva' }} sede</h2>
+                  <form [formGroup]="sedeForm" (ngSubmit)="saveSede()" class="space-y-3 text-sm">
+                    <input formControlName="nombre" placeholder="Nombre de la sede *" class="input-exec" />
+                    <input formControlName="direccion" placeholder="Dirección" class="input-exec" />
+                    <input formControlName="telefono" placeholder="Teléfono" class="input-exec" />
+                    <label class="flex items-center gap-2 text-xs text-slate-600">
+                      <input type="checkbox" formControlName="activa" class="accent-indigo-600" /> Sede operativa / activa
+                    </label>
+                    <div class="flex gap-2 pt-2">
+                      <button type="submit" [disabled]="sedeForm.invalid || saving()" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg disabled:bg-slate-300 transition">
+                        {{ saving() ? 'Guardando…' : (editingSede() ? 'Actualizar' : 'Crear sede') }}
+                      </button>
+                      @if (editingSede()) {
+                        <button type="button" (click)="cancelEditSede()" class="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold py-2 rounded-lg transition">Cancelar</button>
+                      }
+                    </div>
+                  </form>
+                </aside>
+
                 <div class="card-exec overflow-hidden">
                   <header class="px-6 py-4 border-b border-slate-100"><h2 class="text-lg font-bold text-slate-800">🏬 Sedes</h2></header>
                   <table class="w-full text-sm text-left">
@@ -515,20 +580,25 @@ import { ToastService } from '../../core/services/toast.service';
                         <th class="px-4 py-3">Dirección</th>
                         <th class="px-4 py-3">Teléfono</th>
                         <th class="px-5 py-3 text-center">Estado</th>
+                        <th class="px-5 py-3 text-center">Acciones</th>
                       </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
                       @for (s of sedes(); track s.idSede) {
                         <tr class="hover:bg-indigo-50/40 transition">
                           <td class="px-5 py-3 font-semibold text-slate-800">{{ s.nombre }}</td>
-                          <td class="px-4 py-3 text-slate-500">{{ s.direccion }}</td>
-                          <td class="px-4 py-3 text-slate-500">{{ s.telefono }}</td>
+                          <td class="px-4 py-3 text-slate-500">{{ s.direccion || '—' }}</td>
+                          <td class="px-4 py-3 text-slate-500">{{ s.telefono || '—' }}</td>
                           <td class="px-5 py-3 text-center">
                             @if (s.activa) { <span class="badge badge-ok">Activa</span> } @else { <span class="badge badge-agotado">Inactiva</span> }
                           </td>
+                          <td class="px-5 py-3 text-center whitespace-nowrap">
+                            <button (click)="editSede(s)" class="bg-indigo-50 text-indigo-700 text-xs font-semibold px-3 py-1.5 rounded-lg mr-2 hover:bg-indigo-100 transition">Editar</button>
+                            <button (click)="deleteSede(s)" class="bg-red-50 text-red-600 text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-red-100 transition">🗑</button>
+                          </td>
                         </tr>
                       } @empty {
-                        <tr><td colspan="4" class="px-4 py-8 text-center text-slate-400">Sin sedes.</td></tr>
+                        <tr><td colspan="5" class="px-4 py-8 text-center text-slate-400">Sin sedes.</td></tr>
                       }
                     </tbody>
                   </table>
@@ -588,13 +658,37 @@ export class AdminPage implements OnInit {
   });
 
   // Usuarios
+  editingUsuario = signal(false);
+  editingUsuarioId = signal<number | null>(null);
   usuarioForm = this.fb.group({
-    username: ['', [Validators.required, Validators.minLength(3)]],
+    username: ['', [Validators.minLength(3)]],
     email: ['', [Validators.required, Validators.email]],
-    password: ['', [Validators.required, Validators.minLength(6)]],
+    password: [''],
     nombreCompleto: ['', [Validators.required, Validators.minLength(3)]],
     idPais: ['', Validators.required],
-    rol: ['CLIENTE', Validators.required]
+    rol: ['CLIENTE', Validators.required],
+    activo: [true]
+  });
+
+  // Proveedores
+  editingProveedor = signal(false);
+  editingProveedorId = signal<number | null>(null);
+  proveedorForm = this.fb.group({
+    nombre: ['', [Validators.required, Validators.maxLength(120)]],
+    contactoNombre: ['', [Validators.maxLength(120)]],
+    telefono: ['', [Validators.maxLength(30)]],
+    email: ['', [Validators.email, Validators.maxLength(100)]],
+    activo: [true]
+  });
+
+  // Sedes
+  editingSede = signal(false);
+  editingSedeId = signal<number | null>(null);
+  sedeForm = this.fb.group({
+    nombre: ['', [Validators.required, Validators.maxLength(80)]],
+    direccion: ['', [Validators.maxLength(120)]],
+    telefono: ['', [Validators.maxLength(20)]],
+    activa: [true]
   });
 
   // Clientes (RF1): correo como username + rol ROLE_USER / ROLE_ADMIN
@@ -826,27 +920,85 @@ export class AdminPage implements OnInit {
   }
 
   // ==================== USUARIOS ====================
+  editUsuario(u: Usuario) {
+    this.editingUsuario.set(true);
+    this.editingUsuarioId.set(u.idUsuario);
+    this.usuarioForm.patchValue({
+      username: u.username,
+      email: u.email,
+      password: '',
+      nombreCompleto: u.nombreCompleto,
+      idPais: String(u.idPais ?? ''),
+      rol: u.rol,
+      activo: u.activo
+    });
+  }
+
+  cancelEditUsuario() {
+    this.editingUsuario.set(false);
+    this.editingUsuarioId.set(null);
+    this.usuarioForm.reset({ rol: 'CLIENTE', activo: true });
+  }
+
   async saveUsuario() {
     if (this.usuarioForm.invalid) return;
-    this.saving.set(true);
     const value = this.usuarioForm.value;
+    const password = value.password?.trim() || null;
 
+    if (!this.editingUsuario() && !password) {
+      this.toast.show('La contraseña es obligatoria para crear el usuario', 'error');
+      return;
+    }
+    if (password && password.length < 6) {
+      this.toast.show('La contraseña debe tener al menos 6 caracteres', 'error');
+      return;
+    }
+
+    this.saving.set(true);
     try {
-      const created = await this.api.crearUsuario({
-        username: value.username!,
-        email: value.email!,
-        password: value.password!,
-        nombreCompleto: value.nombreCompleto!,
-        idPais: Number(value.idPais)
-      }, value.rol ?? 'CLIENTE');
+      if (this.editingUsuario()) {
+        const id = this.editingUsuarioId()!;
+        const updated = await this.api.actualizarUsuario(id, {
+          username: value.username || null,
+          email: value.email!,
+          password: password,
+          nombreCompleto: value.nombreCompleto!,
+          idPais: value.idPais ? Number(value.idPais) : null,
+          rol: value.rol,
+          activo: value.activo ?? true
+        });
+        this.usuarios.update(list => list.map(u => u.idUsuario === updated.idUsuario ? updated : u));
+        this.toast.show(`✔ Usuario ${updated.username} actualizado`, 'exito');
+        this.cancelEditUsuario();
+      } else {
+        const created = await this.api.crearUsuario({
+          username: value.username!,
+          email: value.email!,
+          password: password!,
+          nombreCompleto: value.nombreCompleto!,
+          idPais: Number(value.idPais)
+        }, value.rol ?? 'CLIENTE');
 
-      this.usuarios.update(list => [...list, created]);
-      this.toast.show(`✔ Usuario ${created.username} creado`, 'exito');
-      this.usuarioForm.reset({ rol: 'CLIENTE' });
+        this.usuarios.update(list => [...list, created]);
+        this.toast.show(`✔ Usuario ${created.username} creado`, 'exito');
+        this.cancelEditUsuario();
+      }
     } catch (err: any) {
-      this.toast.show(err?.error?.error || err?.error?.message || 'No se pudo crear el usuario', 'error');
+      this.toast.show(err?.error?.error || err?.error?.message || 'No se pudo guardar el usuario', 'error');
     } finally {
       this.saving.set(false);
+    }
+  }
+
+  async desactivarUsuario(u: Usuario) {
+    if (!confirm(`¿Estás seguro de desactivar la cuenta de ${u.nombreCompleto}?`)) return;
+    try {
+      await this.api.desactivarUsuario(u.idUsuario);
+      this.usuarios.update(list => list.map(x => x.idUsuario === u.idUsuario ? { ...x, activo: false } : x));
+      this.toast.show(`Cuenta de ${u.username} desactivada`, 'info');
+      if (this.editingUsuarioId() === u.idUsuario) this.cancelEditUsuario();
+    } catch (err: any) {
+      this.toast.show(err?.error?.error || err?.error?.message || 'No se pudo desactivar el usuario', 'error');
     }
   }
 
@@ -964,6 +1116,139 @@ export class AdminPage implements OnInit {
       await Promise.all([this.cargarProductos(), this.cargarDashboard()]);
     } catch (err: any) {
       this.toast.show(err?.error?.error || err?.error?.message || 'No se pudo anular la venta', 'error');
+    }
+  }
+
+  // ==================== PROVEEDORES ====================
+  editProveedor(pv: Proveedor) {
+    this.editingProveedor.set(true);
+    this.editingProveedorId.set(pv.idProveedor);
+    this.proveedorForm.patchValue({
+      nombre: pv.nombre,
+      contactoNombre: pv.contactoNombre,
+      telefono: pv.telefono,
+      email: pv.email,
+      activo: pv.activo !== false
+    });
+  }
+
+  cancelEditProveedor() {
+    this.editingProveedor.set(false);
+    this.editingProveedorId.set(null);
+    this.proveedorForm.reset({ activo: true });
+  }
+
+  async saveProveedor() {
+    if (this.proveedorForm.invalid) return;
+    this.saving.set(true);
+    const value = this.proveedorForm.value;
+
+    try {
+      if (this.editingProveedor()) {
+        const id = this.editingProveedorId()!;
+        const updated = await this.api.actualizarProveedor(id, {
+          nombre: value.nombre!,
+          contactoNombre: value.contactoNombre || null,
+          telefono: value.telefono || null,
+          email: value.email || null,
+          activo: value.activo ?? true
+        });
+        this.proveedores.update(list => list.map(p => p.idProveedor === updated.idProveedor ? updated : p));
+        this.toast.show(`✔ Proveedor ${updated.nombre} actualizado`, 'exito');
+        this.cancelEditProveedor();
+      } else {
+        const created = await this.api.crearProveedor({
+          nombre: value.nombre!,
+          contactoNombre: value.contactoNombre || null,
+          telefono: value.telefono || null,
+          email: value.email || null,
+          activo: value.activo ?? true
+        });
+        this.proveedores.update(list => [...list, created]);
+        this.toast.show(`✔ Proveedor ${created.nombre} registrado`, 'exito');
+        this.cancelEditProveedor();
+      }
+    } catch (err: any) {
+      this.toast.show(err?.error?.error || err?.error?.message || 'No se pudo guardar el proveedor', 'error');
+    } finally {
+      this.saving.set(false);
+    }
+  }
+
+  async deleteProveedor(pv: Proveedor) {
+    if (!confirm(`¿Eliminar o desactivar al proveedor ${pv.nombre}?`)) return;
+    try {
+      await this.api.eliminarProveedor(pv.idProveedor);
+      this.proveedores.update(list => list.map(x => x.idProveedor === pv.idProveedor ? { ...x, activo: false } : x));
+      this.toast.show(`Proveedor ${pv.nombre} actualizado/removido`, 'info');
+      if (this.editingProveedorId() === pv.idProveedor) this.cancelEditProveedor();
+    } catch (err: any) {
+      this.toast.show(err?.error?.error || err?.error?.message || 'No se pudo eliminar el proveedor', 'error');
+    }
+  }
+
+  // ==================== SEDES ====================
+  editSede(s: Sede) {
+    this.editingSede.set(true);
+    this.editingSedeId.set(s.idSede);
+    this.sedeForm.patchValue({
+      nombre: s.nombre,
+      direccion: s.direccion,
+      telefono: s.telefono,
+      activa: s.activa
+    });
+  }
+
+  cancelEditSede() {
+    this.editingSede.set(false);
+    this.editingSedeId.set(null);
+    this.sedeForm.reset({ activa: true });
+  }
+
+  async saveSede() {
+    if (this.sedeForm.invalid) return;
+    this.saving.set(true);
+    const value = this.sedeForm.value;
+
+    try {
+      if (this.editingSede()) {
+        const id = this.editingSedeId()!;
+        const updated = await this.api.actualizarSede(id, {
+          nombre: value.nombre!,
+          direccion: value.direccion || null,
+          telefono: value.telefono || null,
+          activa: value.activa ?? true
+        });
+        this.sedes.update(list => list.map(s => s.idSede === updated.idSede ? updated : s));
+        this.toast.show(`✔ Sede ${updated.nombre} actualizada`, 'exito');
+        this.cancelEditSede();
+      } else {
+        const created = await this.api.crearSede({
+          nombre: value.nombre!,
+          direccion: value.direccion || null,
+          telefono: value.telefono || null,
+          activa: value.activa ?? true
+        });
+        this.sedes.update(list => [...list, created]);
+        this.toast.show(`✔ Sede ${created.nombre} creada`, 'exito');
+        this.cancelEditSede();
+      }
+    } catch (err: any) {
+      this.toast.show(err?.error?.error || err?.error?.message || 'No se pudo guardar la sede', 'error');
+    } finally {
+      this.saving.set(false);
+    }
+  }
+
+  async deleteSede(s: Sede) {
+    if (!confirm(`¿Eliminar o desactivar la sede ${s.nombre}?`)) return;
+    try {
+      await this.api.eliminarSede(s.idSede);
+      this.sedes.update(list => list.map(x => x.idSede === s.idSede ? { ...x, activa: false } : x));
+      this.toast.show(`Sede ${s.nombre} actualizada/removida`, 'info');
+      if (this.editingSedeId() === s.idSede) this.cancelEditSede();
+    } catch (err: any) {
+      this.toast.show(err?.error?.error || err?.error?.message || 'No se pudo eliminar la sede', 'error');
     }
   }
 }

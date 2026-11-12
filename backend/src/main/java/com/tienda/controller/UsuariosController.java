@@ -35,6 +35,13 @@ public class UsuariosController {
         return usuarioService.crearPorAdmin(request, rol.toUpperCase());
     }
 
+    /** Edición de usuario desde el panel ADMIN. */
+    @PutMapping("/{id}")
+    public UsuarioResponse actualizar(@PathVariable Long id,
+                                      @Valid @RequestBody com.tienda.dto.UsuarioActualizarRequest request) {
+        return usuarioService.actualizar(id, request);
+    }
+
     /** Baja lógica: conserva ventas y auditoría, pero bloquea futuros inicios de sesión. */
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)

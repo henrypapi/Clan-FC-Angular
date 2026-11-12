@@ -8,4 +8,10 @@ import java.util.List;
 public interface ProveedorRepository extends JpaRepository<Proveedor, Long> {
 
     List<Proveedor> findAllByActivoTrueOrderByNombreAsc();
+
+    List<Proveedor> findAllByOrderByNombreAsc();
+
+    boolean existsByNombreIgnoreCase(String nombre);
+
+    boolean existsByNombreIgnoreCaseAndIdProveedorNot(String nombre, Long idProveedor);
 }

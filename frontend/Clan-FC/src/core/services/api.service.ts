@@ -103,6 +103,13 @@ export interface Sede {
   incidencias: number;
 }
 
+export interface SedeRequest {
+  nombre: string;
+  direccion?: string | null;
+  telefono?: string | null;
+  activa?: boolean;
+}
+
 export interface Proveedor {
   idProveedor: number;
   nombre: string;
@@ -110,6 +117,14 @@ export interface Proveedor {
   telefono: string;
   email: string;
   activo: boolean;
+}
+
+export interface ProveedorRequest {
+  nombre: string;
+  contactoNombre?: string | null;
+  telefono?: string | null;
+  email?: string | null;
+  activo?: boolean;
 }
 
 export interface Usuario {
@@ -122,6 +137,16 @@ export interface Usuario {
   paisNombre: string | null;
   banderaEmoji: string | null;
   activo: boolean;
+}
+
+export interface UsuarioUpdateRequest {
+  username?: string | null;
+  email: string;
+  password?: string | null;
+  nombreCompleto: string;
+  idPais?: number | null;
+  rol?: string | null;
+  activo?: boolean;
 }
 
 /** Cliente (RF1): el correo es la credencial de acceso. */
@@ -384,12 +409,32 @@ export class ApiService {
     return this.fetchApi<Sede[]>(`/sedes${todas ? '/todas' : ''}`);
   }
 
-  getProveedores(): Promise<Proveedor[]> {
-    return this.fetchApi<Proveedor[]>('/proveedores');
+  crearSede(request: SedeRequest): Promise<Sede> {
+    return this.fetchApi<Sede>('/sedes', { method: 'POST', body: request });
   }
 
-  crearProveedor(request: any): Promise<Proveedor> {
+  actualizarSede(id: number, request: SedeRequest): Promise<Sede> {
+    return this.fetchApi<Sede>(`/sedes/${id}`, { method: 'PUT', body: request });
+  }
+
+  eliminarSede(id: number): Promise<void> {
+    return this.fetchApi<void>(`/sedes/${id}`, { method: 'DELETE' });
+  }
+
+  getProveedores(soloActivos = false): Promise<Proveedor[]> {
+    return this.fetchApi<Proveedor[]>(`/proveedores${soloActivos ? '?soloActivos=true' : ''}`);
+  }
+
+  crearProveedor(request: ProveedorRequest): Promise<Proveedor> {
     return this.fetchApi<Proveedor>('/proveedores', { method: 'POST', body: request });
+  }
+
+  actualizarProveedor(id: number, request: ProveedorRequest): Promise<Proveedor> {
+    return this.fetchApi<Proveedor>(`/proveedores/${id}`, { method: 'PUT', body: request });
+  }
+
+  eliminarProveedor(id: number): Promise<void> {
+    return this.fetchApi<void>(`/proveedores/${id}`, { method: 'DELETE' });
   }
 
   // ==========================================
@@ -404,6 +449,14 @@ export class ApiService {
       method: 'POST',
       body: request,
     });
+  }
+
+  actualizarUsuario(id: number, request: UsuarioUpdateRequest): Promise<Usuario> {
+    return this.fetchApi<Usuario>(`/usuarios/${id}`, { method: 'PUT', body: request });
+  }
+
+  desactivarUsuario(id: number): Promise<void> {
+    return this.fetchApi<void>(`/usuarios/${id}`, { method: 'DELETE' });
   }
 
   // ==========================================

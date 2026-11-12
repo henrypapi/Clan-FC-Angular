@@ -69,9 +69,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/usuarios/**").hasRole("ADMIN")
                         // --- CRUD de clientes (RF1): solo ADMIN ---
                         .requestMatchers("/api/clientes/**").hasRole("ADMIN")
-                        // --- Sedes: lectura autenticada, escritura solo ADMIN ---
-                        .requestMatchers(HttpMethod.GET, "/api/sedes/**").authenticated()
-                        .requestMatchers("/api/sedes/**").hasRole("ADMIN")
+                        // --- Sedes y proveedores: lectura autenticada, escritura solo ADMIN ---
+                        .requestMatchers(HttpMethod.GET, "/api/sedes/**", "/api/proveedores/**").authenticated()
+                        .requestMatchers("/api/sedes/**", "/api/proveedores/**").hasRole("ADMIN")
                         // --- Cajas y movimientos: cajero y admin ---
                         .requestMatchers("/api/cajas/**").hasAnyRole("CAJERO", "ADMIN")
                         // --- Dashboard ejecutivo: solo ADMIN ---

@@ -90,6 +90,69 @@ public class UsuarioService {
         usuario.setActivo(Boolean.FALSE);
     }
 
+    /**
+     * Actualiza los datos de un usuario desde el panel ADMIN.
+     * Si la contraseña viene en blanco, se conserva la actual.
+     */
+    @Transactional
+    public UsuarioResponse actualizar(Long idUsuario, com.tienda.dto.UsuarioActualizarRequest request) {
+        Usuario usuario = usuarioRepository.findById(idUsuario)
+                .orElseThrow(() -> new RecursoNoEncontradoException(
+                        "Usuario no encontrado (id=" + idUsuario + ")"));
+
+        String email = request.email().trim().toLowerCase(java.util.Locale.ROOT);
+        String username = (request.username() == null || request.username().isBlank())
+                ? email
+                : request.username().trim();
+
+        if (usuarioRepository.existsByEmailIgnoreCaseAndIdUsuarioNot(email, idUsuario)) {
+            throw new DataIntegrityViolationException("El correo ya está en uso por otro usuario");
+        }
+        if (usuarioRepository.existsByUsernameIgnoreCaseAndIdUsuarioNot(username, idUsuario)) {
+            throw new DataIntegrityViolationException("El nombre de usuario ya está en uso por otro usuario");
+        }
+
+        usuario.setEmail(email);
+        usuario.setUsername(username);
+        usuario.setNombreCompleto(request.nombreCompleto().trim());
+
+        if (request.idPais() != null) {
+            Pais pais = paisRepository.findById(request.idPais())
+                    .filter(Pais::getActivo)
+                    .orElseThrow(() -> new RecursoNoEncontradoException("País no encontrado (id=" + request.idPais() + ")"));
+            usuario.setPais(pais);
+        }
+
+        if (request.rol() != null && !request.rol().isBlank()) {
+            Rol nuevoRol = rolRepository.findByNombreIgnoreCase(request.rol().trim())
+                    .orElseThrow(() -> new RecursoNoEncontradoException("Rol no encontrado: " + request.rol()));
+
+            if ("ADMIN".equalsIgnoreCase(usuario.getRol().getNombre())
+                    && !"ADMIN".equalsIgnoreCase(nuevoRol.getNombre())
+                    && usuarioRepository.countByRolNombreIgnoreCase("ADMIN") <= 1) {
+                throw new IllegalArgumentException("No se puede quitar el rol al único administrador del sistema");
+            }
+            usuario.setRol(nuevoRol);
+        }
+
+        if (request.activo() != null) {
+            if (!request.activo() && "ADMIN".equalsIgnoreCase(usuario.getRol().getNombre())
+                    && usuarioRepository.countByRolNombreIgnoreCase("ADMIN") <= 1) {
+                throw new IllegalArgumentException("No se permite desactivar al único administrador");
+            }
+            usuario.setActivo(request.activo());
+        }
+
+        if (request.password() != null && !request.password().isBlank()) {
+            if (request.password().trim().length() < 6) {
+                throw new IllegalArgumentException("La contraseña debe tener al menos 6 caracteres");
+            }
+            usuario.setPasswordHash(passwordEncoder.encode(request.password().trim()));
+        }
+
+        return UsuarioResponse.from(usuarioRepository.save(usuario));
+    }
+
     /* ------------------------------ Privados ------------------------------ */
 
     private UsuarioResponse crear(String username, String email, String passwordPlano,
