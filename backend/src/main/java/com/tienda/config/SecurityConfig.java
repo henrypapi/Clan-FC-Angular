@@ -60,7 +60,7 @@ public class SecurityConfig {
                         // --- Registro público de clientes (autoregistro) ---
                         .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/registro").permitAll()
                         // --- Catálogo público (solo lectura GET para clientes y público general) ---
-                        .requestMatchers(HttpMethod.GET, "/api/productos", "/api/productos/**", "/api/categorias", "/api/categorias/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/productos", "/api/productos/**", "/api/categorias", "/api/categorias/**", "/error").permitAll()
                         // --- Gestión de inventario (vista ADMIN) ---
                         .requestMatchers(HttpMethod.POST, "/api/productos/**", "/api/categorias/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/productos/**", "/api/categorias/**").hasRole("ADMIN")
