@@ -41,8 +41,7 @@ public class ProductoService {
     /** Catálogo público: solo activos, con búsqueda y filtro de categoría. */
     @Transactional(readOnly = true)
     public List<ProductoResponse> buscarCatalogo(String busqueda, Long categoriaId) {
-        // Aseguramos que si la búsqueda es nula, se convierta en una cadena vacía segura
-        String texto = (busqueda != null && !busqueda.trim().isEmpty()) ? normalizar(busqueda) : null;
+        String texto = normalizar(busqueda);
         return respuestas(productoRepository.buscarCatalogo(texto, categoriaId));
     }
 
