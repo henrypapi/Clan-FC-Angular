@@ -41,7 +41,8 @@ public class ProductoService {
     /** Catálogo público: solo activos, con búsqueda y filtro de categoría. */
     @Transactional(readOnly = true)
     public List<ProductoResponse> buscarCatalogo(String busqueda, Long categoriaId) {
-        String texto = normalizar(busqueda);
+        // En lugar de enviar null, enviamos un String vacío ""
+        String texto = (busqueda != null && !busqueda.trim().isEmpty()) ? normalizar(busqueda) : "";
         return respuestas(productoRepository.buscarCatalogo(texto, categoriaId));
     }
 
@@ -55,7 +56,7 @@ public class ProductoService {
     /** Vista admin: incluye inactivos. */
     @Transactional(readOnly = true)
     public List<ProductoResponse> buscarInventario(String busqueda, Long categoriaId) {
-        String texto = normalizar(busqueda);
+        String texto = (busqueda != null && !busqueda.trim().isEmpty()) ? normalizar(busqueda) : "";
         return respuestas(productoRepository.buscarInventario(texto, categoriaId));
     }
 
